@@ -24,7 +24,6 @@ export default {
     title: 'パフォーマンスレポート',
     description: '四半期の業績指標と月次トレンドを表示します',
     loading: 'レポートを読み込み中...',
-    loadFailed: 'レポートの読み込みに失敗しました',
     noData: '現在のフィルターに一致するレポートデータがありません。',
     quarterly: {
       title: '四半期業績',
