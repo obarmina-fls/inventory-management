@@ -92,6 +92,7 @@
       <h3>Backend</h3>
       <div class="sub">FastAPI + Uvicorn, port 8001</div>
       <div class="box"><b>Routes</b><span><code>main.py</code>: read-only GET endpoints under <code>/api</code></span></div>
+      <div class="box"><b>Middleware</b><span>CORS allow-list, GZip (&gt;1KB), <code>Cache-Control</code> (read-only mock data 60s, everything else <code>no-store</code>)</span></div>
       <div class="box"><b>Filter helpers</b><span><code>apply_filters()</code> (warehouse, category, status), <code>filter_by_month()</code> (month or quarter)</span></div>
       <div class="box"><b>Pydantic models</b><span>InventoryItem, Order, DemandForecast, BacklogItem, PurchaseOrder, Task</span></div>
       <div class="box"><b>CORS</b><span>Only the dev frontend (<code>CORS_ORIGINS</code>); binds to 127.0.0.1 (<code>HOST</code>)</span></div>
@@ -152,7 +153,7 @@
     <div class="step"><b>Pydantic</b><span>Validates the response and serializes it to JSON.</span></div>
     <div class="step"><b>View</b><span>The raw result goes into a ref. Totals and charts are computed properties.</span></div>
   </div>
-  <p style="color:var(--muted);font-size:14px;margin-top:14px">Quarter filters such as <code>Q1-2025</code> expand to a list of months through <code>QUARTER_MAP</code> and are matched against each order's <code>order_date</code>. Inventory has no time dimension, so the month filter never applies to it.</p>
+  <p style="color:var(--muted);font-size:14px;margin-top:14px">Quarter filters such as <code>Q1-2025</code> expand to a list of months through <code>QUARTER_MAP</code> and are matched against the <code>YYYY-MM</code> prefix of each order's <code>order_date</code>. The <code>month</code> param must be <code>all</code>, <code>YYYY-MM</code> or <code>Qn-YYYY</code> (otherwise 422), and the other filters are capped at 50 characters. Inventory has no time dimension, so the month filter never applies to it.</p>
 
   <h2>API endpoints</h2>
   <div class="table-wrap">

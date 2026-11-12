@@ -29,8 +29,10 @@ yarn-error.log*
 .DS_Store
 
 # UV/Python package managers
-uv.lock
 *.lock
+# The server lockfile is committed for reproducible installs (it references public PyPI only).
+# client/package-lock.json stays ignored above: see CLAUDE.md about local registry URLs.
+!server/uv.lock
 
 # Test coverage
 .coverage
