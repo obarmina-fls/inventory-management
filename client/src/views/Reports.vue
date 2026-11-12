@@ -1,8 +1,13 @@
 <template>
   <div class="reports">
     <div class="page-header">
-      <h2>{{ t('reports.title') }}</h2>
-      <p>{{ t('reports.description') }}</p>
+      <div>
+        <h2>{{ t('reports.title') }}</h2>
+        <p>{{ t('reports.description') }}</p>
+      </div>
+      <button type="button" class="btn-primary" :disabled="exportDisabled" @click="exportCsv">
+        {{ t('reports.export.button') }}
+      </button>
     </div>
 
     <AsyncStatus
@@ -142,6 +147,7 @@ import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
 import { formatCurrency, formatCurrencyWithDecimals } from '../utils/currency'
+import { buildCsv, toCsvLine, downloadCsv } from '../utils/csv'
 
 const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
@@ -202,6 +208,9 @@ export default {
           row.changeText = sign + formatCurrencyWithDecimals(Math.abs(change), currentCurrency.value, 2)
           row.changeClass = change > 0 ? 'positive-change' : change < 0 ? 'negative-change' : ''
           // Growth is undefined when previous month had no revenue
+          // Raw numbers for CSV export, rounded to 1 decimal; growth stays null when prev is 0
+          row.changeValue = Math.round(change * 10) / 10
+          row.growthValue = prev === 0 ? null : Math.round((change / prev) * 1000) / 10
           row.growthText = prev === 0 ? 'N/A' : (change > 0 ? '+' : '') + ((change / prev) * 100).toFixed(1) + '%'
         }
         return row
@@ -231,8 +240,75 @@ export default {
       return 'badge danger'
     }
 
+    // Disabled while loading or when there is nothing to export
+    const exportDisabled = computed(
+      () => loading.value || (quarterlyData.value.length === 0 && monthlyData.value.length === 0)
+    )
+
+    // Active filter value as a readable label ('all' -> localized "All")
+    const filterLabel = (value, statusKey = false) => {
+      if (value === 'all') return t('filters.all')
+      return statusKey ? t('status.' + value) : value
+    }
+
+    const exportCsv = () => {
+      if (exportDisabled.value) return
+      const quarterlyHeaders = [
+        t('reports.quarterly.quarter'),
+        t('reports.quarterly.totalOrders'),
+        t('reports.quarterly.totalRevenue'),
+        t('reports.quarterly.avgOrderValue'),
+        t('reports.export.fulfillmentRatePct'),
+      ]
+      const monthlyHeaders = [
+        t('reports.mom.month'),
+        t('reports.mom.orders'),
+        t('reports.mom.revenue'),
+        t('reports.mom.change'),
+        t('reports.export.growthPct'),
+      ]
+      const quarterlyRows = quarterlyData.value.map((q) => [
+        q.quarter,
+        q.total_orders,
+        q.total_revenue,
+        q.avg_order_value,
+        q.fulfillment_rate,
+      ])
+      // First month has no previous value: change/growth are null -> empty cells
+      const monthlyCsvRows = monthlyRows.value.map((r) => [
+        r.month,
+        r.order_count,
+        r.revenue,
+        r.hasPrevious ? r.changeValue : null,
+        r.hasPrevious ? r.growthValue : null,
+      ])
+      const exp = (k) => t('reports.export.' + k)
+      const text = [
+        toCsvLine([t('reports.title')]),
+        toCsvLine([
+          exp('filters'),
+          `${exp('period')}: ${filterLabel(selectedPeriod.value)}`,
+          `${exp('warehouse')}: ${filterLabel(selectedLocation.value)}`,
+          `${exp('category')}: ${filterLabel(selectedCategory.value)}`,
+          `${exp('status')}: ${filterLabel(selectedStatus.value, true)}`,
+        ]),
+        '',
+        toCsvLine([t('reports.quarterly.title')]),
+        buildCsv(quarterlyHeaders, quarterlyRows),
+        '',
+        toCsvLine([exp('monthlyTrends')]),
+        buildCsv(monthlyHeaders, monthlyCsvRows),
+      ].join('\r\n')
+      // Local date (not UTC) so the filename matches the user's calendar day
+      const d = new Date()
+      const pad = (n) => String(n).padStart(2, '0')
+      downloadCsv(`report-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.csv`, text)
+    }
+
     return {
       t,
+      exportDisabled,
+      exportCsv,
       currentCurrency,
       loading,
       error,
@@ -275,6 +351,7 @@ export default {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
   max-width: 80px;
 }
 

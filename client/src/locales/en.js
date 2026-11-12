@@ -34,6 +34,17 @@ export default {
       avgOrderValue: 'Avg Order Value',
       fulfillmentRate: 'Fulfillment Rate',
     },
+    export: {
+      button: 'Export CSV',
+      filters: 'Filters',
+      period: 'Period',
+      warehouse: 'Warehouse',
+      category: 'Category',
+      status: 'Status',
+      fulfillmentRatePct: 'Fulfillment Rate %',
+      monthlyTrends: 'Monthly Trends',
+      growthPct: 'Growth %',
+    },
     trend: {
       title: 'Monthly Revenue Trend',
     },
