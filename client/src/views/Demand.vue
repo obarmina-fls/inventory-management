@@ -113,7 +113,7 @@
 <script>
 import AsyncStatus from '../components/AsyncStatus.vue'
 import { useAsyncData } from '../composables/useAsyncData'
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
