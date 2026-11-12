@@ -24,7 +24,6 @@ export default {
     title: 'Performance Reports',
     description: 'View quarterly performance metrics and monthly trends',
     loading: 'Loading reports...',
-    loadFailed: 'Failed to load reports',
     noData: 'No report data matches the current filters.',
     quarterly: {
       title: 'Quarterly Performance',
