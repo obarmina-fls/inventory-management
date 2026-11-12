@@ -103,7 +103,7 @@
             <div class="order-health-container">
               <!-- Left: Donut Chart -->
               <div class="order-health-chart">
-                <svg viewBox="0 0 200 200" class="donut-svg-compact">
+                <svg viewBox="0 0 200 200" class="donut-svg-compact" role="img" :aria-label="orderStatusChartLabel">
                   <circle cx="100" cy="100" r="65" fill="none" stroke="var(--border)" stroke-width="25" />
                   <circle
                     cx="100"
@@ -214,7 +214,13 @@
             <h3 class="card-title">{{ t('dashboard.inventoryValue.title') }}</h3>
           </div>
           <div class="chart-content">
-            <div class="horizontal-bar-chart" v-if="categoryData.length > 0">
+            <!-- group (not img): the bars carry visible text values that must stay readable -->
+            <div
+              class="horizontal-bar-chart"
+              v-if="categoryData.length > 0"
+              role="group"
+              :aria-label="categoryChartLabel"
+            >
               <div v-for="cat in categoryData" :key="cat.name" class="h-bar-item">
                 <div class="h-bar-label">{{ translateCategory(cat.name) }}</div>
                 <div class="h-bar-container">
@@ -529,6 +535,14 @@ export default {
       return counts
     })
 
+    // Accessible summaries of the charts (values are otherwise only visual)
+    const orderStatusChartLabel = computed(() => {
+      const parts = ['delivered', 'shipped', 'processing', 'backordered'].map((key) =>
+        t('dashboard.chartLabels.statusItem', { count: statusData.value[key], status: t(`status.${key}`) })
+      )
+      return `${t('dashboard.orderHealth.title')}: ${parts.join(', ')}`
+    })
+
     const orderHealthMetrics = computed(() => {
       const totalOrders = allOrders.value.length
       const totalValue = allOrders.value.reduce((sum, order) => sum + (order.total_value || 0), 0)
@@ -609,6 +623,18 @@ export default {
       })
 
       return Object.values(categoryMap)
+    })
+
+    const categoryChartLabel = computed(() => {
+      const parts = categoryData.value.map(
+        (cat) =>
+          `${translateCategory(cat.name)} ${
+            currentCurrency.value === 'JPY'
+              ? formatCurrency(cat.value, currentCurrency.value)
+              : '$' + (cat.value / 1000).toFixed(1) + 'K'
+          }`
+      )
+      return `${t('dashboard.inventoryValue.title')}: ${parts.join(', ')}`
     })
 
     const maxCategoryValue = computed(() => {
@@ -866,6 +892,8 @@ export default {
       statusData,
       orderHealthMetrics,
       categoryData,
+      categoryChartLabel,
+      orderStatusChartLabel,
       maxCategoryValue,
       orderTrendData,
       maxOrderCount,

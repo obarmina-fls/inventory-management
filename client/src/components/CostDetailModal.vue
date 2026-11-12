@@ -1,14 +1,14 @@
 <template>
   <BaseModal
     :open="Boolean(isOpen && costData)"
-    :title="`${costData?.month ?? ''} Cost Breakdown`"
+    :title="t('modals.cost.title', { month: monthLabel })"
     max-width="600px"
     @close="close"
   >
     <div class="modal-body">
       <div class="cost-summary">
         <div class="summary-card total">
-          <div class="summary-label">Total Costs</div>
+          <div class="summary-label">{{ t('modals.cost.totalCosts') }}</div>
           <div class="summary-value">{{ currencySymbol }}{{ totalCosts.toLocaleString() }}</div>
         </div>
       </div>
@@ -23,11 +23,11 @@
               </svg>
             </div>
             <div class="cost-info">
-              <div class="cost-name">Procurement</div>
+              <div class="cost-name">{{ t('modals.cost.procurement') }}</div>
               <div class="cost-amount">{{ currencySymbol }}{{ costData.procurement.toLocaleString() }}</div>
             </div>
           </div>
-          <div class="cost-percentage">{{ getProcurementPercentage() }}% of total</div>
+          <div class="cost-percentage">{{ t('modals.cost.percentOfTotal', { pct: getProcurementPercentage() }) }}</div>
         </div>
 
         <div class="cost-item operational">
@@ -39,11 +39,11 @@
               </svg>
             </div>
             <div class="cost-info">
-              <div class="cost-name">Operational</div>
+              <div class="cost-name">{{ t('modals.cost.operational') }}</div>
               <div class="cost-amount">{{ currencySymbol }}{{ costData.operational.toLocaleString() }}</div>
             </div>
           </div>
-          <div class="cost-percentage">{{ getOperationalPercentage() }}% of total</div>
+          <div class="cost-percentage">{{ t('modals.cost.percentOfTotal', { pct: getOperationalPercentage() }) }}</div>
         </div>
 
         <div class="cost-item labor">
@@ -59,11 +59,11 @@
               </svg>
             </div>
             <div class="cost-info">
-              <div class="cost-name">Labor</div>
+              <div class="cost-name">{{ t('modals.cost.labor') }}</div>
               <div class="cost-amount">{{ currencySymbol }}{{ costData.labor.toLocaleString() }}</div>
             </div>
           </div>
-          <div class="cost-percentage">{{ getLaborPercentage() }}% of total</div>
+          <div class="cost-percentage">{{ t('modals.cost.percentOfTotal', { pct: getLaborPercentage() }) }}</div>
         </div>
 
         <div class="cost-item overhead">
@@ -79,17 +79,17 @@
               </svg>
             </div>
             <div class="cost-info">
-              <div class="cost-name">Overhead</div>
+              <div class="cost-name">{{ t('modals.cost.overhead') }}</div>
               <div class="cost-amount">{{ currencySymbol }}{{ costData.overhead.toLocaleString() }}</div>
             </div>
           </div>
-          <div class="cost-percentage">{{ getOverheadPercentage() }}% of total</div>
+          <div class="cost-percentage">{{ t('modals.cost.percentOfTotal', { pct: getOverheadPercentage() }) }}</div>
         </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button class="btn-secondary" @click="close">Close</button>
+      <button class="btn-secondary" @click="close">{{ t('common.close') }}</button>
     </div>
   </BaseModal>
 </template>
@@ -99,7 +99,7 @@ import { computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
-const { currentCurrency } = useI18n()
+const { t, currentCurrency } = useI18n()
 
 const currencySymbol = computed(() => {
   return currentCurrency.value === 'JPY' ? '¥' : '$'
@@ -117,6 +117,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+// Month comes as a short English label (Jan, Feb...); translate when a key exists
+const monthLabel = computed(() => {
+  const month = props.costData?.month ?? ''
+  const key = `months.${String(month).toLowerCase()}`
+  const label = t(key)
+  return label === key ? month : label
+})
 
 const totalCosts = computed(() => {
   if (!props.costData) return 0

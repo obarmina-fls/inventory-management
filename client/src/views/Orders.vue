@@ -97,6 +97,12 @@
               </tr>
             </thead>
             <tbody>
+              <tr v-if="orders.length === 0">
+                <td colspan="7" class="table-empty-cell">
+                  <div>{{ t('common.noMatch') }}</div>
+                  <button type="button" class="btn-reset" @click="resetFilters">{{ t('common.resetFilters') }}</button>
+                </td>
+              </tr>
               <tr v-for="order in orders" :key="order.id">
                 <td class="col-order-number">
                   <strong>{{ order.order_number }}</strong>
@@ -160,7 +166,8 @@ export default {
     const submittedOrders = ref([])
 
     // Use shared filters
-    const { selectedPeriod, selectedLocation, selectedCategory, selectedStatus, getCurrentFilters } = useFilters()
+    const { selectedPeriod, selectedLocation, selectedCategory, selectedStatus, getCurrentFilters, resetFilters } =
+      useFilters()
 
     // Reloads on filter change; previous orders stay visible meanwhile
     const { loading, error, loaded, reload } = useAsyncData(
@@ -226,6 +233,7 @@ export default {
       loaded,
       reload,
       orders,
+      resetFilters,
       submittedOrders,
       currentCurrency,
       formatCurrency,

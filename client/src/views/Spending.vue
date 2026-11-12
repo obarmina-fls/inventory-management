@@ -55,7 +55,7 @@
               <span>{{ currencySymbol }}{{ Math.round(maxRevenueValue * 0.25) }}K</span>
               <span>{{ currencySymbol }}0</span>
             </div>
-            <div class="chart-area">
+            <div class="chart-area" role="img" :aria-label="revenueChartLabel">
               <div v-for="month in monthlyRevenue" :key="month.month" class="bar-group-revenue">
                 <div class="revenue-bars">
                   <div
@@ -105,7 +105,7 @@
               <span>{{ currencySymbol }}5K</span>
               <span>{{ currencySymbol }}0</span>
             </div>
-            <div class="chart-area">
+            <div class="chart-area" role="group" :aria-label="costFlowChartLabel">
               <div v-for="month in monthlySpending" :key="month.month" class="bar-group">
                 <div
                   class="stacked-bar"
@@ -210,6 +210,11 @@
       </div>
     </AsyncStatus>
 
+    <TransactionDetailModal
+      :is-open="showTransactionModal"
+      :transaction="selectedTransaction"
+      @close="showTransactionModal = false"
+    />
     <CostDetailModal :is-open="showCostModal" :cost-data="selectedCostData" @close="showCostModal = false" />
   </div>
 </template>
@@ -223,12 +228,14 @@ import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
 import { formatCurrency as formatCurrencyUtil } from '../utils/currency'
 import CostDetailModal from '../components/CostDetailModal.vue'
+import TransactionDetailModal from '../components/TransactionDetailModal.vue'
 
 export default {
   name: 'Spending',
   components: {
     AsyncStatus,
     CostDetailModal,
+    TransactionDetailModal,
   },
   setup() {
     const { t, currentCurrency } = useI18n()
@@ -242,6 +249,8 @@ export default {
     // Modal state
     const showCostModal = ref(false)
     const selectedCostData = ref(null)
+    const showTransactionModal = ref(false)
+    const selectedTransaction = ref(null)
 
     // Use shared filters
     const { selectedPeriod } = useFilters()
@@ -498,11 +507,35 @@ export default {
     }
 
     const handleTransactionClick = (transaction) => {
-      console.log('Transaction clicked:', transaction)
-      alert(
-        `Transaction Details:\n\nID: ${transaction.id}\nDescription: ${transaction.description}\nVendor: ${transaction.vendor}\nDate: ${formatDateShort(transaction.date)}\nAmount: $${transaction.amount.toLocaleString()}`
-      )
+      selectedTransaction.value = transaction
+      showTransactionModal.value = true
     }
+
+    // Accessible text alternatives for the bar charts (values are otherwise only in hover titles)
+    const revenueChartLabel = computed(() => {
+      const parts = monthlyRevenue.value.map((m) =>
+        t('finance.chartLabels.revenueItem', {
+          month: translateMonth(m.month),
+          // Rounded: revenue values carry cents that add noise when read aloud
+          revenue: `${currencySymbol.value}${Math.round(m.revenue).toLocaleString()}`,
+          costs: `${currencySymbol.value}${Math.round(m.costs).toLocaleString()}`,
+        })
+      )
+      return `${t('finance.revenueVsCosts.title')}: ${parts.join('; ')}`
+    })
+
+    const costFlowChartLabel = computed(() => {
+      const parts = monthlySpending.value.map((m) =>
+        t('finance.chartLabels.costItem', {
+          month: translateMonth(m.month),
+          procurement: `${currencySymbol.value}${m.procurement.toLocaleString()}`,
+          operational: `${currencySymbol.value}${m.operational.toLocaleString()}`,
+          labor: `${currencySymbol.value}${m.labor.toLocaleString()}`,
+          overhead: `${currencySymbol.value}${m.overhead.toLocaleString()}`,
+        })
+      )
+      return `${t('finance.monthlyCostFlow.title')}: ${parts.join('; ')}`
+    })
 
     const showCostDetail = (monthData) => {
       selectedCostData.value = monthData
@@ -537,6 +570,10 @@ export default {
       showCostModal,
       selectedCostData,
       showCostDetail,
+      showTransactionModal,
+      selectedTransaction,
+      revenueChartLabel,
+      costFlowChartLabel,
       Math,
     }
   },

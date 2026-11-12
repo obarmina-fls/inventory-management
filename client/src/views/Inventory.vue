@@ -59,6 +59,14 @@
               </tr>
             </thead>
             <tbody>
+              <tr v-if="filteredItems.length === 0">
+                <td colspan="9" class="table-empty-cell">
+                  <div>{{ t('common.noMatch') }}</div>
+                  <button type="button" class="btn-reset" @click="resetAll">
+                    {{ t('common.resetFiltersAndSearch') }}
+                  </button>
+                </td>
+              </tr>
               <tr
                 v-for="item in filteredItems"
                 :key="item.id"
@@ -136,7 +144,13 @@ export default {
     const selectedItem = ref(null)
 
     // Use shared filters
-    const { selectedLocation, selectedCategory, getCurrentFilters } = useFilters()
+    const { selectedLocation, selectedCategory, getCurrentFilters, resetFilters } = useFilters()
+
+    // Empty-state action: clear the global filters and the local search box
+    const resetAll = () => {
+      resetFilters()
+      searchQuery.value = ''
+    }
 
     // Stock status order for sorting (using status keys)
     const STATUS_ORDER = { lowStock: 0, adequate: 1, inStock: 2 }
@@ -231,6 +245,7 @@ export default {
       reload,
       items,
       searchQuery,
+      resetAll,
       filteredItems,
       getStockStatus,
       getStockStatusClass,
