@@ -1,13 +1,27 @@
 <template>
   <div class="reports">
-    <div class="page-header">
+    <div class="page-header no-print">
       <div>
         <h2>{{ t('reports.title') }}</h2>
         <p>{{ t('reports.description') }}</p>
       </div>
-      <button type="button" class="btn-primary" :disabled="exportDisabled" @click="exportCsv">
-        {{ t('reports.export.button') }}
-      </button>
+      <!-- Two plain buttons instead of a menu: fewer states, native keyboard support -->
+      <div class="export-actions" role="group" :aria-label="t('reports.export.group')">
+        <button type="button" class="btn-primary" :disabled="exportDisabled" @click="exportCsv">
+          {{ t('reports.export.button') }}
+        </button>
+        <button type="button" class="btn-primary" :disabled="exportDisabled" @click="exportPdf">
+          {{ t('reports.export.pdfButton') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Visible only when printing: report title and the active filters -->
+    <div class="print-only print-header">
+      <h1>{{ t('reports.title') }}</h1>
+      <p>
+        <span v-for="f in filterSummary" :key="f.key" class="print-filter">{{ f.label }}: {{ f.value }}</span>
+      </p>
     </div>
 
     <AsyncStatus
@@ -142,7 +156,7 @@
 <script>
 import AsyncStatus from '../components/AsyncStatus.vue'
 import { useAsyncData } from '../composables/useAsyncData'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
@@ -251,6 +265,42 @@ export default {
       return statusKey ? t('status.' + value) : value
     }
 
+    // Active filters as label/value pairs; shared by the CSV export and the print header
+    const filterSummary = computed(() => [
+      { key: 'period', label: t('reports.export.period'), value: filterLabel(selectedPeriod.value) },
+      { key: 'warehouse', label: t('reports.export.warehouse'), value: filterLabel(selectedLocation.value) },
+      { key: 'category', label: t('reports.export.category'), value: filterLabel(selectedCategory.value) },
+      { key: 'status', label: t('reports.export.status'), value: filterLabel(selectedStatus.value, true) },
+    ])
+
+    // Local date (not UTC) so the filename matches the user's calendar day
+    const reportBaseName = () => {
+      const d = new Date()
+      const pad = (n) => String(n).padStart(2, '0')
+      return `report-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    }
+
+    // "Save as PDF" uses document.title as the suggested filename. Set it for the
+    // print and restore it on afterprint (also fires when the dialog is cancelled).
+    let originalTitle = null
+    const restoreTitle = () => {
+      if (originalTitle !== null) {
+        document.title = originalTitle
+        originalTitle = null
+      }
+    }
+    const exportPdf = () => {
+      if (exportDisabled.value) return
+      if (originalTitle === null) originalTitle = document.title
+      document.title = reportBaseName()
+      window.print()
+    }
+    onMounted(() => window.addEventListener('afterprint', restoreTitle))
+    onBeforeUnmount(() => {
+      window.removeEventListener('afterprint', restoreTitle)
+      restoreTitle()
+    })
+
     const exportCsv = () => {
       if (exportDisabled.value) return
       const quarterlyHeaders = [
@@ -285,13 +335,7 @@ export default {
       const exp = (k) => t('reports.export.' + k)
       const text = [
         toCsvLine([t('reports.title')]),
-        toCsvLine([
-          exp('filters'),
-          `${exp('period')}: ${filterLabel(selectedPeriod.value)}`,
-          `${exp('warehouse')}: ${filterLabel(selectedLocation.value)}`,
-          `${exp('category')}: ${filterLabel(selectedCategory.value)}`,
-          `${exp('status')}: ${filterLabel(selectedStatus.value, true)}`,
-        ]),
+        toCsvLine([exp('filters'), ...filterSummary.value.map((f) => `${f.label}: ${f.value}`)]),
         '',
         toCsvLine([t('reports.quarterly.title')]),
         buildCsv(quarterlyHeaders, quarterlyRows),
@@ -299,10 +343,7 @@ export default {
         toCsvLine([exp('monthlyTrends')]),
         buildCsv(monthlyHeaders, monthlyCsvRows),
       ].join('\r\n')
-      // Local date (not UTC) so the filename matches the user's calendar day
-      const d = new Date()
-      const pad = (n) => String(n).padStart(2, '0')
-      downloadCsv(`report-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.csv`, text)
+      downloadCsv(`${reportBaseName()}.csv`, text)
     }
 
     // Accessible summary of the revenue bars (values are otherwise only in hover titles)
@@ -316,6 +357,8 @@ export default {
       trendChartLabel,
       exportDisabled,
       exportCsv,
+      exportPdf,
+      filterSummary,
       currentCurrency,
       loading,
       error,
@@ -338,6 +381,19 @@ export default {
 <style scoped>
 .reports {
   padding: 0;
+}
+
+.export-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.print-header h1 {
+  margin: 0 0 var(--space-2);
+}
+
+.print-filter {
+  margin-right: var(--space-4);
 }
 
 .chart-container {
