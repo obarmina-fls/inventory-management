@@ -34,6 +34,17 @@ export default {
       avgOrderValue: 'Avg Order Value',
       fulfillmentRate: 'Fulfillment Rate',
     },
+    export: {
+      button: 'Export CSV',
+      filters: 'Filters',
+      period: 'Period',
+      warehouse: 'Warehouse',
+      category: 'Category',
+      status: 'Status',
+      fulfillmentRatePct: 'Fulfillment Rate %',
+      monthlyTrends: 'Monthly Trends',
+      growthPct: 'Growth %',
+    },
     trend: {
       title: 'Monthly Revenue Trend',
     },
@@ -274,6 +285,8 @@ export default {
     orderStatus: 'Order Status',
     all: 'All',
     allMonths: 'All Months',
+    someInactive: "Some filters don't apply on this page. Greyed-out filters keep their values.",
+    noneApply: "Filters don't apply on this page.",
   },
 
   // Statuses

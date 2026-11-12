@@ -247,11 +247,15 @@ export default {
 </script>
 
 <style scoped>
+.card-header {
+  flex-wrap: wrap;
+}
+
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  min-width: 300px;
+  min-width: min(300px, 100%);
 }
 
 .search-icon {

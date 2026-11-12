@@ -236,14 +236,15 @@ export default {
     const allCategorySpending = ref([])
     const allTransactions = ref([])
     const summaryData = ref({})
-    const allOrders = ref([])
+    // Per-month revenue/order counts from /api/reports/monthly-trends (filtered server-side)
+    const monthlyTrends = ref([])
 
     // Modal state
     const showCostModal = ref(false)
     const selectedCostData = ref(null)
 
     // Use shared filters
-    const { selectedPeriod, getCurrentFilters } = useFilters()
+    const { selectedPeriod } = useFilters()
 
     // Monthly spending chart always shows all months (not filtered)
     const monthlySpending = computed(() => {
@@ -318,23 +319,16 @@ export default {
       }
     })
 
-    // Filtered orders based on selected period
-    const filteredOrders = computed(() => {
-      if (selectedPeriod.value === 'all') {
-        return allOrders.value
-      }
-
-      // Filter orders by selected month
-      return allOrders.value.filter((order) => {
-        const orderMonth = new Date(order.order_date).toISOString().slice(0, 7)
-        return orderMonth === selectedPeriod.value
-      })
+    // Trend rows in the selected period (YYYY-MM). The chart below always shows all months.
+    const periodTrends = computed(() => {
+      if (selectedPeriod.value === 'all') return monthlyTrends.value
+      return monthlyTrends.value.filter((m) => m.month === selectedPeriod.value)
     })
 
-    // Revenue metrics from filtered orders
+    // Revenue metrics from the filtered monthly trends
     const revenueMetrics = computed(() => {
-      const totalRevenue = filteredOrders.value.reduce((sum, order) => sum + (order.total_value || 0), 0)
-      const orderCount = filteredOrders.value.length
+      const totalRevenue = periodTrends.value.reduce((sum, m) => sum + (m.revenue || 0), 0)
+      const orderCount = periodTrends.value.reduce((sum, m) => sum + (m.order_count || 0), 0)
       const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0
 
       return {
@@ -377,12 +371,11 @@ export default {
         costs: 0,
       }))
 
-      // Calculate revenue from orders
-      allOrders.value.forEach((order) => {
-        const orderDate = new Date(order.order_date)
-        const monthIndex = orderDate.getMonth()
+      // Revenue per month from the server (month is 'YYYY-MM'; months with no orders are absent)
+      monthlyTrends.value.forEach((trend) => {
+        const monthIndex = parseInt(String(trend.month).slice(5, 7), 10) - 1
         if (monthIndex >= 0 && monthIndex < 12) {
-          revenueByMonth[monthIndex].revenue += order.total_value || 0
+          revenueByMonth[monthIndex].revenue += trend.revenue || 0
         }
       })
 
@@ -406,25 +399,27 @@ export default {
       return Math.ceil(max / 1000) // Return in K
     })
 
-    // No server-side filters here (period is applied via computed), so this loads once; reload is for Retry
+    // Spending is period-only: the cost endpoints have no warehouse/category/status dimension, so revenue is
+    // requested unfiltered too (same scope for Net Profit/Margin). Period is applied client-side via computed,
+    // and the trends request omits `month` so the chart keeps showing every month. Loads once; reload is for Retry.
     const { loading, error, loaded, reload } = useAsyncData(
       async ({ signal }) => {
-        const [summaryRes, monthlyRes, categoryRes, transactionsRes, ordersRes] = await Promise.all([
+        const [summaryRes, monthlyRes, categoryRes, transactionsRes, trendsRes] = await Promise.all([
           api.getSpendingSummary({ signal }),
           api.getMonthlySpending({ signal }),
           api.getCategorySpending({ signal }),
           api.getTransactions({ signal }),
-          api.getOrders({}, { signal }),
+          api.getMonthlyTrends({}, { signal }),
         ])
-        return { summaryRes, monthlyRes, categoryRes, transactionsRes, ordersRes }
+        return { summaryRes, monthlyRes, categoryRes, transactionsRes, trendsRes }
       },
       {
-        onSuccess: ({ summaryRes, monthlyRes, categoryRes, transactionsRes, ordersRes }) => {
+        onSuccess: ({ summaryRes, monthlyRes, categoryRes, transactionsRes, trendsRes }) => {
           summaryData.value = summaryRes
           allMonthlySpending.value = monthlyRes
           allCategorySpending.value = categoryRes
           allTransactions.value = transactionsRes
-          allOrders.value = ordersRes
+          monthlyTrends.value = trendsRes
         },
       }
     )
@@ -444,7 +439,8 @@ export default {
 
     const getRevenueBarHeight = (value) => {
       const maxValue = maxRevenueValue.value * 1000
-      return (value / maxValue) * 100
+      // No revenue at all (empty filter result): avoid 0/0
+      return maxValue > 0 ? (value / maxValue) * 100 : 0
     }
 
     const formatDate = (dateString) => {
@@ -573,9 +569,14 @@ export default {
   margin-bottom: var(--space-6);
 }
 
+.card-header {
+  flex-wrap: wrap;
+}
+
 .chart-legend {
   display: flex;
-  gap: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
   font-size: var(--text-base);
 }
 
@@ -641,6 +642,7 @@ export default {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
@@ -701,6 +703,8 @@ export default {
 
 .chart-area {
   flex: 1;
+  /* Allow shrinking below content width so the chart fits narrow screens */
+  min-width: 0;
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
@@ -712,6 +716,7 @@ export default {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
@@ -778,7 +783,7 @@ export default {
 
 .two-column-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(450px, 100%), 1fr));
   gap: var(--space-6);
 }
 

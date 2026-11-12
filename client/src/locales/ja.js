@@ -33,6 +33,17 @@ export default {
       avgOrderValue: '平均注文額',
       fulfillmentRate: '出荷達成率',
     },
+    export: {
+      button: 'CSVエクスポート',
+      filters: 'フィルター',
+      period: '期間',
+      warehouse: '倉庫',
+      category: 'カテゴリ',
+      status: 'ステータス',
+      fulfillmentRatePct: '出荷達成率 %',
+      monthlyTrends: '月次トレンド',
+      growthPct: '成長率 %',
+    },
     trend: {
       title: '月次売上トレンド',
     },
@@ -274,6 +285,8 @@ export default {
     orderStatus: '注文ステータス',
     all: 'すべて',
     allMonths: 'すべての月',
+    someInactive: 'このページでは一部のフィルターは適用されません。無効なフィルターの値は保持されます。',
+    noneApply: 'このページではフィルターは適用されません。',
   },
 
   // Statuses

@@ -2,9 +2,15 @@
   <div class="filters-bar">
     <div class="filters-container">
       <div class="filters-grid">
-        <div class="filter-group">
+        <div class="filter-group" :class="{ 'is-inactive': !isActive('period') }">
           <label for="filter-period">{{ t('filters.timePeriod') }}</label>
-          <BaseSelect id="filter-period" v-model="selectedPeriod" class="filter-select">
+          <BaseSelect
+            id="filter-period"
+            v-model="selectedPeriod"
+            class="filter-select"
+            :disabled="!isActive('period')"
+            :aria-describedby="!isActive('period') ? 'filter-note' : undefined"
+          >
             <option value="all">{{ t('filters.allMonths') }}</option>
             <option value="2025-01">{{ t('months.january') }}</option>
             <option value="2025-02">{{ t('months.february') }}</option>
@@ -21,9 +27,15 @@
           </BaseSelect>
         </div>
 
-        <div class="filter-group">
+        <div class="filter-group" :class="{ 'is-inactive': !isActive('location') }">
           <label for="filter-location">{{ t('filters.location') }}</label>
-          <BaseSelect id="filter-location" v-model="selectedLocation" class="filter-select">
+          <BaseSelect
+            id="filter-location"
+            v-model="selectedLocation"
+            class="filter-select"
+            :disabled="!isActive('location')"
+            :aria-describedby="!isActive('location') ? 'filter-note' : undefined"
+          >
             <option value="all">{{ t('filters.all') }}</option>
             <option value="San Francisco">{{ t('warehouses.sanFrancisco') }}</option>
             <option value="London">{{ t('warehouses.london') }}</option>
@@ -31,9 +43,15 @@
           </BaseSelect>
         </div>
 
-        <div class="filter-group">
+        <div class="filter-group" :class="{ 'is-inactive': !isActive('category') }">
           <label for="filter-category">{{ t('filters.category') }}</label>
-          <BaseSelect id="filter-category" v-model="selectedCategory" class="filter-select">
+          <BaseSelect
+            id="filter-category"
+            v-model="selectedCategory"
+            class="filter-select"
+            :disabled="!isActive('category')"
+            :aria-describedby="!isActive('category') ? 'filter-note' : undefined"
+          >
             <option value="all">{{ t('filters.all') }}</option>
             <option value="circuit boards">{{ t('categories.circuitBoards') }}</option>
             <option value="sensors">{{ t('categories.sensors') }}</option>
@@ -43,9 +61,15 @@
           </BaseSelect>
         </div>
 
-        <div class="filter-group">
+        <div class="filter-group" :class="{ 'is-inactive': !isActive('status') }">
           <label for="filter-status">{{ t('filters.orderStatus') }}</label>
-          <BaseSelect id="filter-status" v-model="selectedStatus" class="filter-select">
+          <BaseSelect
+            id="filter-status"
+            v-model="selectedStatus"
+            class="filter-select"
+            :disabled="!isActive('status')"
+            :aria-describedby="!isActive('status') ? 'filter-note' : undefined"
+          >
             <option value="all">{{ t('filters.all') }}</option>
             <option value="delivered">{{ t('status.delivered') }}</option>
             <option value="shipped">{{ t('status.shipped') }}</option>
@@ -71,10 +95,13 @@
         </svg>
       </button>
     </div>
+    <p v-if="note" id="filter-note" class="filter-note">{{ note }}</p>
   </div>
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import BaseSelect from './BaseSelect.vue'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
@@ -87,9 +114,25 @@ export default {
       useFilters()
 
     const { t } = useI18n()
+    const route = useRoute()
+
+    // Filters this route honours come from route.meta.filters (see main.js).
+    // Routes without meta default to all filters. Inactive filters are disabled, not reset,
+    // so their values still apply when the user navigates back.
+    const FILTER_KEYS = ['period', 'location', 'category', 'status']
+    const activeFilters = computed(() => route.meta?.filters ?? FILTER_KEYS)
+    const isActive = (key) => activeFilters.value.includes(key)
+
+    const note = computed(() => {
+      if (activeFilters.value.length === 0) return t('filters.noneApply')
+      if (activeFilters.value.length < FILTER_KEYS.length) return t('filters.someInactive')
+      return ''
+    })
 
     return {
       t,
+      isActive,
+      note,
       selectedPeriod,
       selectedLocation,
       selectedCategory,
@@ -142,6 +185,17 @@ export default {
 /* Visual styling lives in BaseSelect; only layout sizing here */
 .filter-select {
   min-width: 140px;
+}
+
+/* Inactive filters: native :disabled on the select (BaseSelect dims it); dim the label too */
+.filter-group.is-inactive label {
+  opacity: 0.5;
+}
+
+.filter-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .reset-filters-btn {
