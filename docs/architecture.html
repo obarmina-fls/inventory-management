@@ -169,6 +169,7 @@
     <tr><td><code>GET /api/spending/*</code></td><td>none</td><td>summary, monthly, categories, transactions</td></tr>
     <tr><td><code>GET /api/reports/*</code></td><td>warehouse, category, status, month</td><td>quarterly, monthly-trends</td></tr>
   </table>
+  <p style="color:var(--muted);font-size:14px;margin-top:14px">List endpoints (inventory, orders, demand, backlog, spending transactions, restocking orders, tasks) also take optional <code>limit</code> (1&ndash;500) and <code>offset</code>, applied after filtering. The body stays a plain array and <code>X-Total-Count</code> carries the total. The UI omits <code>limit</code> and pages the Orders and Inventory tables client-side, because the dashboard KPIs and status counts aggregate over the full list.</p>
   </div>
 
   <h2>Things to know</h2>

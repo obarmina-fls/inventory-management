@@ -502,6 +502,15 @@ export default {
       warehouse: 'Warehouse',
     },
   },
+  pagination: {
+    label: 'Table pagination',
+    showing: 'Showing {start}–{end} of {total}',
+    previous: 'Previous',
+    next: 'Next',
+    previousPage: 'Previous page',
+    nextPage: 'Next page',
+    page: 'Page {n}',
+  },
   common: {
     loadError: 'Failed to load data.',
     retry: 'Retry',

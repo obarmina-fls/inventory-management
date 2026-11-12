@@ -8,7 +8,7 @@
     <AsyncStatus :loading="loading" :error="error" :loaded="loaded" @retry="reload">
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">
+          <h3 ref="stockTitle" class="card-title" tabindex="-1">
             {{ t('inventory.stockLevels') }} ({{ filteredItems.length }} {{ t('inventory.skus') }})
           </h3>
           <div class="search-box">
@@ -68,7 +68,7 @@
                 </td>
               </tr>
               <tr
-                v-for="item in filteredItems"
+                v-for="item in pagedItems"
                 :key="item.id"
                 class="clickable-row"
                 tabindex="0"
@@ -107,6 +107,7 @@
             </tbody>
           </table>
         </div>
+        <BasePagination :page="page" :page-size="PAGE_SIZE" :total="filteredItems.length" @update:page="onPageChange" />
       </div>
     </AsyncStatus>
 
@@ -116,8 +117,9 @@
 
 <script>
 import AsyncStatus from '../components/AsyncStatus.vue'
+import BasePagination from '../components/BasePagination.vue'
 import { useAsyncData } from '../composables/useAsyncData'
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
@@ -127,6 +129,7 @@ export default {
   name: 'Inventory',
   components: {
     AsyncStatus,
+    BasePagination,
     InventoryDetailModal,
   },
   setup() {
@@ -206,6 +209,34 @@ export default {
       }
     )
 
+    // Client-side paging over the filtered + sorted list (the heading count stays the full total)
+    const PAGE_SIZE = 25
+    const page = ref(1)
+    const stockTitle = ref(null)
+
+    // Clamp: a refetch or narrower search can leave the current page past the end
+    const pageCount = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / PAGE_SIZE)))
+    watch(pageCount, (count) => {
+      if (page.value > count) page.value = count
+    })
+    // Warehouse/category filter or search text change -> back to page 1
+    watch([selectedLocation, selectedCategory, searchQuery], () => {
+      page.value = 1
+    })
+
+    const pagedItems = computed(() => {
+      const start = (page.value - 1) * PAGE_SIZE
+      return filteredItems.value.slice(start, start + PAGE_SIZE)
+    })
+
+    // Only user-initiated page changes move focus, so keyboard users are not left at the old bottom position
+    const onPageChange = async (next) => {
+      page.value = next
+      await nextTick()
+      stockTitle.value?.focus({ preventScroll: true })
+      stockTitle.value?.scrollIntoView({ block: 'start' })
+    }
+
     const getStockStatus = (item) => {
       const key = getStockStatusKey(item)
       return t(`status.${key}`)
@@ -247,6 +278,11 @@ export default {
       searchQuery,
       resetAll,
       filteredItems,
+      pagedItems,
+      page,
+      PAGE_SIZE,
+      onPageChange,
+      stockTitle,
       getStockStatus,
       getStockStatusClass,
       translateCategory,
