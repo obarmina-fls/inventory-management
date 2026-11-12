@@ -13,10 +13,12 @@
             <div class="kpi-header">
               <span class="kpi-label">{{ t('dashboard.kpi.inventoryTurnover') }}</span>
             </div>
-            <div class="kpi-value">4.2</div>
-            <div class="kpi-goal">{{ t('dashboard.kpi.goal') }}: 4.5 (-6.67%)</div>
+            <div class="kpi-value">{{ kpis.turnover.display }}</div>
+            <div class="kpi-goal">
+              {{ t('dashboard.kpi.goal') }}: {{ kpis.turnover.goal }} ({{ kpis.turnover.delta }})
+            </div>
             <div class="kpi-progress-bar">
-              <div class="kpi-progress" style="width: 93.33%"></div>
+              <div class="kpi-progress" :style="{ width: kpis.turnover.width + '%' }"></div>
             </div>
           </div>
 
@@ -24,17 +26,12 @@
             <div class="kpi-header">
               <span class="kpi-label">{{ t('dashboard.kpi.ordersFulfilled') }}</span>
             </div>
-            <div class="kpi-value">{{ ordersData.fulfilled }}</div>
+            <div class="kpi-value">{{ kpis.fulfilled.display }}</div>
             <div class="kpi-goal">
-              {{ t('dashboard.kpi.goal') }}: {{ ordersData.goal }} ({{
-                calculatePercentage(ordersData.fulfilled, ordersData.goal)
-              }}%)
+              {{ t('dashboard.kpi.goal') }}: {{ kpis.fulfilled.goal }} ({{ kpis.fulfilled.delta }})
             </div>
             <div class="kpi-progress-bar">
-              <div
-                class="kpi-progress"
-                :style="{ width: calculatePercentage(ordersData.fulfilled, ordersData.goal) + '%' }"
-              ></div>
+              <div class="kpi-progress" :style="{ width: kpis.fulfilled.width + '%' }"></div>
             </div>
           </div>
 
@@ -42,12 +39,12 @@
             <div class="kpi-header">
               <span class="kpi-label">{{ t('dashboard.kpi.orderFillRate') }}</span>
             </div>
-            <div class="kpi-value">{{ fillRate }}%</div>
+            <div class="kpi-value">{{ kpis.fillRate.display }}</div>
             <div class="kpi-goal">
-              {{ t('dashboard.kpi.goal') }}: 95% ({{ fillRate - 95 > 0 ? '+' : '' }}{{ (fillRate - 95).toFixed(2) }}%)
+              {{ t('dashboard.kpi.goal') }}: {{ kpis.fillRate.goal }}% ({{ kpis.fillRate.delta }})
             </div>
             <div class="kpi-progress-bar">
-              <div class="kpi-progress success" :style="{ width: (fillRate / 95) * 100 + '%' }"></div>
+              <div class="kpi-progress success" :style="{ width: kpis.fillRate.width + '%' }"></div>
             </div>
           </div>
 
@@ -75,10 +72,16 @@
             <div class="kpi-header">
               <span class="kpi-label">{{ t('dashboard.kpi.avgProcessingTime') }}</span>
             </div>
-            <div class="kpi-value">2.8</div>
-            <div class="kpi-goal">{{ t('dashboard.kpi.goal') }}: 3.0 (-6.67%)</div>
+            <div class="kpi-value">{{ kpis.processing.display }}</div>
+            <div class="kpi-goal">
+              {{ t('dashboard.kpi.goal') }}: {{ kpis.processing.goal }} ({{ kpis.processing.delta }})
+            </div>
             <div class="kpi-progress-bar">
-              <div class="kpi-progress success" style="width: 93.33%"></div>
+              <div
+                class="kpi-progress"
+                :class="{ success: kpis.processing.meetsGoal }"
+                :style="{ width: kpis.processing.width + '%' }"
+              ></div>
             </div>
           </div>
         </div>
@@ -426,8 +429,12 @@ export default {
     // Use shared filters
     const { selectedPeriod, selectedLocation, selectedCategory, selectedStatus, getCurrentFilters } = useFilters()
 
-    const ordersData = ref({ fulfilled: 187, goal: 200 })
-    const fillRate = ref(96.8)
+    // KPI goals (constants). Period-scaled goals are derived inside `kpis`.
+    const TURNOVER_GOAL = 4.5 // annualized turns
+    const FULFILLED_GOAL_YEAR = 200 // delivered orders across all 12 months
+    const FILL_RATE_GOAL = 95 // percent
+    const PROCESSING_GOAL_DAYS = 3.0 // lower is better
+    const NO_VALUE = '\u2014' // em dash shown when a KPI cannot be computed (empty filter result)
 
     const revenueGoal = computed(() => {
       // $800K per month, so if looking at all months (12 months), goal is 12 * 800K = 9.6M
@@ -443,6 +450,74 @@ export default {
         return `$${(revenueGoal.value / 1000000).toFixed(1)}M`
       }
       return `$${(revenueGoal.value / 1000).toFixed(0)}K`
+    })
+
+    const clampPct = (v) => (Number.isFinite(v) ? Math.min(Math.max(v, 0), 100) : 0)
+    const signed = (v, suffix) => `${v > 0 ? '+' : ''}${v.toFixed(2)}${suffix}`
+    // Whole days between two YYYY-MM-DD strings, or null if either is missing/invalid
+    const daysBetween = (from, to) => {
+      if (!from || !to) return null
+      const ms = new Date(to) - new Date(from)
+      return Number.isNaN(ms) ? null : ms / (1000 * 60 * 60 * 24)
+    }
+
+    // KPIs derived from the already-filtered allOrders / inventoryItems. Each value is null when
+    // the filtered data cannot support it, which renders as an em dash (never NaN/Infinity).
+    const kpis = computed(() => {
+      const orders = allOrders.value
+      const total = orders.length
+      const monthsInPeriod = selectedPeriod.value === 'all' ? 12 : 1
+
+      // Order fill rate (%) = orders not Backordered / all orders * 100
+      const fillRate = total > 0 ? (orders.filter((o) => o.status !== 'Backordered').length / total) * 100 : null
+
+      // Orders fulfilled = count of Delivered orders. Goal is 200 per year, scaled to 1/12 for a single month.
+      const fulfilled = orders.filter((o) => o.status === 'Delivered').length
+      const fulfilledGoal = monthsInPeriod === 12 ? FULFILLED_GOAL_YEAR : Math.round(FULFILLED_GOAL_YEAR / 12)
+
+      // Avg processing time (days) = mean(actual_delivery - order_date) over orders that have actual_delivery
+      const durations = orders.map((o) => daysBetween(o.order_date, o.actual_delivery)).filter((d) => d !== null)
+      const processing = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null
+
+      // Inventory turnover = annualized COGS shipped / current inventory value.
+      //   COGS shipped = sum(item.quantity * inventory unit_cost) over Delivered + Shipped orders in the period
+      //   annualized   = COGS * 12 / months in period (12 for "all", 1 for a single month)
+      //   inventory value = sum(quantity_on_hand * unit_cost) over the filtered inventory
+      const unitCost = new Map(inventoryItems.value.map((i) => [i.sku, i.unit_cost]))
+      let cogs = 0
+      orders.forEach((o) => {
+        if (o.status !== 'Delivered' && o.status !== 'Shipped') return
+        ;(o.items || []).forEach((it) => {
+          cogs += (it.quantity || 0) * (unitCost.get(it.sku) || 0)
+        })
+      })
+      const inventoryValue = inventoryItems.value.reduce((sum, i) => sum + i.quantity_on_hand * i.unit_cost, 0)
+      const turnover = total > 0 && inventoryValue > 0 ? (cogs * (12 / monthsInPeriod)) / inventoryValue : null
+
+      // Progress = value / goal clamped to 0-100%; delta = relative difference to goal (points for fill rate)
+      const ratioKpi = (value, goal, decimals) => ({
+        display: value === null ? NO_VALUE : value.toFixed(decimals),
+        goal: goal.toFixed(decimals),
+        delta: value === null ? NO_VALUE : signed((value / goal - 1) * 100, '%'),
+        width: value === null ? 0 : clampPct((value / goal) * 100),
+      })
+
+      return {
+        turnover: ratioKpi(turnover, TURNOVER_GOAL, 1),
+        fulfilled: {
+          ...ratioKpi(total > 0 ? fulfilled : null, fulfilledGoal, 0),
+        },
+        fillRate: {
+          display: fillRate === null ? NO_VALUE : `${fillRate.toFixed(1)}%`,
+          goal: String(FILL_RATE_GOAL),
+          delta: fillRate === null ? NO_VALUE : signed(fillRate - FILL_RATE_GOAL, '%'),
+          width: fillRate === null ? 0 : clampPct((fillRate / FILL_RATE_GOAL) * 100),
+        },
+        processing: {
+          ...ratioKpi(processing, PROCESSING_GOAL_DAYS, 1),
+          meetsGoal: processing !== null && processing <= PROCESSING_GOAL_DAYS,
+        },
+      }
     })
 
     const statusData = computed(() => {
@@ -684,10 +759,6 @@ export default {
       },
     })
 
-    const calculatePercentage = (value, goal) => {
-      return ((value / goal) * 100).toFixed(2)
-    }
-
     // Compute total orders once for efficiency
     const totalOrders = computed(() => {
       return (
@@ -791,8 +862,7 @@ export default {
       loaded,
       reload,
       summary,
-      ordersData,
-      fillRate,
+      kpis,
       statusData,
       orderHealthMetrics,
       categoryData,
@@ -801,7 +871,6 @@ export default {
       maxOrderCount,
       topProducts,
       backlogItems,
-      calculatePercentage,
       getCircleSegment,
       getStockBadge,
       translateCategory,
@@ -948,9 +1017,12 @@ export default {
   padding: 0 var(--space-4);
 }
 
+/* Scales down on narrow screens; 200px is the max */
 .donut-svg-compact {
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .donut-center-label {
@@ -1332,5 +1404,15 @@ export default {
   background: var(--text-secondary);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+}
+
+/* Below 1024px (app-wide breakpoint): single-column layouts so nothing overflows phones */
+@media (max-width: 1023px) {
+  .charts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .order-health-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

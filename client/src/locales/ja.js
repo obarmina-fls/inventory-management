@@ -285,6 +285,8 @@ export default {
     orderStatus: '注文ステータス',
     all: 'すべて',
     allMonths: 'すべての月',
+    someInactive: 'このページでは一部のフィルターは適用されません。無効なフィルターの値は保持されます。',
+    noneApply: 'このページではフィルターは適用されません。',
   },
 
   // Statuses

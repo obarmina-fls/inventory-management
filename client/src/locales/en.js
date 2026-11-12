@@ -285,6 +285,8 @@ export default {
     orderStatus: 'Order Status',
     all: 'All',
     allMonths: 'All Months',
+    someInactive: "Some filters don't apply on this page. Greyed-out filters keep their values.",
+    noneApply: "Filters don't apply on this page.",
   },
 
   // Statuses
