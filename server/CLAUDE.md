@@ -275,13 +275,14 @@ server/
 - No authentication (demo only)
 - CORS restricted to the dev frontend; server binds to `127.0.0.1` (set `HOST=0.0.0.0` to expose)
 - No rate limiting; write endpoints are capped instead (`MAX_SUBMITTED_ORDERS`, `MAX_TASKS`)
-- No input validation beyond types
+- Query params validated via `MonthParam` (`all` / `YYYY-MM` / `Qn-YYYY`) and `FilterParam` (max 50 chars); use them for new filtered endpoints
+- GZip for responses over 1KB; `Cache-Control` set by middleware (`CACHEABLE_PATHS` get `max-age=60`, everything else `no-store`)
 - Suitable for local development only
 
 ## Quick Reference
 
 **Start server:** `uv run python main.py`
 **API docs:** http://localhost:8001/docs
-**Run tests:** `cd ../tests && uv run pytest backend/ -v`
+**Run tests:** `cd ../tests && uv run --project ../server pytest backend/ -v` (pytest is a dev dependency of the server project; `tests/` has no environment of its own)
 **Add endpoint:** Define model → Add route → Write tests
 **Add filter:** Add query param → Check 'all' value → Filter data

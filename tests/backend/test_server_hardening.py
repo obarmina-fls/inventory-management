@@ -96,3 +96,65 @@ class TestWriteEndpointCaps:
         assert response.status_code == 409
         assert "limit" in response.json()["detail"].lower()
         assert len(mock_data.tasks) == 1
+
+
+class TestQueryParamValidation:
+    """Test suite for month/filter query-param validation."""
+
+    @pytest.mark.parametrize("month", ["-", "2025", "2025-13", "Q5-2025", "january", "2025-01-01"])
+    def test_invalid_month_rejected(self, client, month):
+        """Test that malformed month values are a 422 instead of matching everything."""
+        response = client.get(f"/api/orders?month={month}")
+        assert response.status_code == 422
+
+    def test_month_matches_order_date_prefix(self, client):
+        """Test that a month filter returns only orders from that month."""
+        data = client.get("/api/orders?month=2025-03").json()
+        assert len(data) > 0
+        assert all(order["order_date"].startswith("2025-03") for order in data)
+
+    def test_unmapped_quarter_returns_no_orders(self, client):
+        """Test that a well-formed quarter with no data returns nothing (it used to return everything)."""
+        response = client.get("/api/orders?month=Q1-2030")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_overlong_filter_rejected(self, client):
+        """Test that warehouse/category/status values are length-bounded."""
+        response = client.get("/api/orders?warehouse=" + "x" * 51)
+        assert response.status_code == 422
+
+    def test_overlong_sku_rejected(self, client, isolated_submitted_orders):
+        """Test that restock SKUs are length-bounded before being echoed in errors."""
+        response = client.post("/api/restocking/orders", json={"items": [{"sku": "x" * 33, "quantity": 1}]})
+        assert response.status_code == 422
+        assert len(mock_data.submitted_orders) == 0
+
+
+class TestResponseHeaders:
+    """Test suite for compression and caching headers."""
+
+    def test_large_response_is_gzipped(self, client):
+        """Test that large JSON responses are compressed when the client accepts gzip."""
+        response = client.get("/api/orders", headers={"Accept-Encoding": "gzip"})
+        assert response.status_code == 200
+        assert response.headers.get("content-encoding") == "gzip"
+        assert len(response.json()) > 0
+
+    def test_static_endpoint_is_cacheable(self, client):
+        """Test that read-only mock-data endpoints allow short browser caching."""
+        response = client.get("/api/inventory")
+        assert response.headers["cache-control"] == "public, max-age=60"
+
+    @pytest.mark.parametrize("path", ["/api/spending/summary", "/api/spending/transactions", "/api/tasks", "/api/backlog", "/api/restocking/orders"])
+    def test_financial_and_mutable_endpoints_not_cached(self, client, path):
+        """Test that financial and write-affected endpoints are never cached."""
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+
+    def test_error_responses_not_cached(self, client):
+        """Test that error responses on cacheable paths are not cached."""
+        response = client.get("/api/orders?month=bad")
+        assert response.status_code == 422
+        assert response.headers["cache-control"] == "no-store"

@@ -4,7 +4,8 @@ import threading
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from fastapi.middleware.gzip import GZipMiddleware
+from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field
 import mock_data
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
@@ -24,16 +25,14 @@ def filter_by_month(items: list, month: Optional[str]) -> list:
     if not month or month == 'all':
         return items
 
+    # Match on the YYYY-MM prefix of order_date. The old substring check let values like
+    # "-" match every order; MonthParam now rejects such values, and this keeps matching exact.
     if month.startswith('Q'):
-        # Handle quarters
-        if month in QUARTER_MAP:
-            months = QUARTER_MAP[month]
-            return [item for item in items if any(m in item.get('order_date', '') for m in months)]
+        # A well-formed quarter we have no data mapping for matches nothing (it used to return everything)
+        months = set(QUARTER_MAP.get(month, []))
     else:
-        # Direct month match
-        return [item for item in items if month in item.get('order_date', '')]
-
-    return items
+        months = {month}
+    return [item for item in items if item.get('order_date', '')[:7] in months]
 
 def apply_filters(items: list, warehouse: Optional[str] = None, category: Optional[str] = None,
                  status: Optional[str] = None) -> list:
@@ -68,6 +67,31 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
+
+# Compress JSON responses over 1KB (/api/orders is ~110KB raw, ~10x smaller gzipped)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Read-only endpoints serve static mock data, so browsers may reuse them briefly.
+# Everything else is no-store: endpoints whose data the write endpoints change, and the
+# financial (/api/spending) endpoints, which must never sit in a shared cache once auth exists.
+CACHEABLE_PATHS = {
+    "/api/inventory", "/api/orders", "/api/demand", "/api/dashboard/summary",
+    "/api/reports/quarterly", "/api/reports/monthly-trends",
+}
+
+@app.middleware("http")
+async def cache_control(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/") and "cache-control" not in response.headers:
+        cacheable = request.method == "GET" and response.status_code == 200 and request.url.path in CACHEABLE_PATHS
+        response.headers["Cache-Control"] = "public, max-age=60" if cacheable else "no-store"
+    return response
+
+# Shared query-param types. Free-form strings used to be accepted unbounded.
+# month: 'all', 'YYYY-MM' or 'Qn-YYYY' (what FilterBar sends); anything else is a 422.
+MonthParam = Annotated[Optional[str], Query(pattern=r"^(all|\d{4}-(0[1-9]|1[0-2])|Q[1-4]-\d{4})$")]
+# warehouse/category/status stay free text (matching is case-insensitive) but are length-bounded
+FilterParam = Annotated[Optional[str], Query(max_length=50)]
 
 # Data models
 class InventoryItem(BaseModel):
@@ -170,7 +194,8 @@ class RestockRecommendation(BaseModel):
     full_cost: float  # cost of restocking every item at full quantity (useful as slider max)
 
 class RestockOrderLine(BaseModel):
-    sku: str
+    # Bounded because an unknown SKU is echoed back in the 400 error detail
+    sku: str = Field(min_length=1, max_length=32)
     # Upper bound guards against absurd totals being persisted to submitted_orders.json
     quantity: int = Field(gt=0, le=100_000)
 
@@ -264,8 +289,8 @@ def root():
 
 @app.get("/api/inventory", response_model=List[InventoryItem])
 def get_inventory(
-    warehouse: Optional[str] = None,
-    category: Optional[str] = None
+    warehouse: FilterParam = None,
+    category: FilterParam = None
 ):
     """Get all inventory items with optional filtering"""
     return apply_filters(inventory_items, warehouse, category)
@@ -280,10 +305,10 @@ def get_inventory_item(item_id: str):
 
 @app.get("/api/orders", response_model=List[Order])
 def get_orders(
-    warehouse: Optional[str] = None,
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    month: Optional[str] = None
+    warehouse: FilterParam = None,
+    category: FilterParam = None,
+    status: FilterParam = None,
+    month: MonthParam = None
 ):
     """Get all orders with optional filtering"""
     filtered_orders = apply_filters(orders, warehouse, category, status)
@@ -453,10 +478,10 @@ def delete_task(task_id: str):
 
 @app.get("/api/dashboard/summary")
 def get_dashboard_summary(
-    warehouse: Optional[str] = None,
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    month: Optional[str] = None
+    warehouse: FilterParam = None,
+    category: FilterParam = None,
+    status: FilterParam = None,
+    month: MonthParam = None
 ):
     """Get summary statistics for dashboard with optional filtering"""
     # Filter inventory
@@ -501,10 +526,10 @@ def get_recent_transactions():
 
 @app.get("/api/reports/quarterly")
 def get_quarterly_reports(
-    warehouse: Optional[str] = None,
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    month: Optional[str] = None
+    warehouse: FilterParam = None,
+    category: FilterParam = None,
+    status: FilterParam = None,
+    month: MonthParam = None
 ):
     """Get quarterly performance reports, honoring the same filters as /api/orders"""
     filtered_orders = apply_filters(orders, warehouse, category, status)
@@ -548,10 +573,10 @@ def get_quarterly_reports(
 
 @app.get("/api/reports/monthly-trends")
 def get_monthly_trends(
-    warehouse: Optional[str] = None,
-    category: Optional[str] = None,
-    status: Optional[str] = None,
-    month: Optional[str] = None
+    warehouse: FilterParam = None,
+    category: FilterParam = None,
+    status: FilterParam = None,
+    month: MonthParam = None
 ):
     """Get month-over-month trends, honoring the same filters as /api/orders"""
     filtered_orders = apply_filters(orders, warehouse, category, status)
