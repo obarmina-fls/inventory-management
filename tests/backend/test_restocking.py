@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+import main
 import mock_data
 from main import build_restock_recommendation, recommended_quantity
 
@@ -142,6 +143,50 @@ class TestSubmittedOrders:
         assert response.status_code == 400
         assert "detail" in response.json()
         assert client.get("/api/restocking/orders").json() == []
+
+    def test_submit_low_stock_inventory_sku(self, client, isolated_submitted_orders):
+        """Test that a low-stock inventory SKU with no forecast can be ordered,
+        priced from inventory with the default lead time."""
+        inventory = client.get("/api/inventory").json()
+        forecast_skus = {f["item_sku"] for f in client.get("/api/demand").json()}
+        item = next(
+            i for i in inventory
+            if i["quantity_on_hand"] <= i["reorder_point"] and i["sku"] not in forecast_skus
+        )
+
+        response = client.post("/api/restocking/orders", json={"items": [{"sku": item["sku"], "quantity": 10}]})
+        assert response.status_code == 201
+
+        order = response.json()
+        line = order["items"][0]
+        assert line["sku"] == item["sku"]
+        assert line["name"] == item["name"]
+        assert line["unit_cost"] == item["unit_cost"]
+        assert abs(line["line_total"] - 10 * item["unit_cost"]) < 0.01
+        assert line["lead_time_days"] == main.DEFAULT_INVENTORY_LEAD_TIME_DAYS
+        assert line["trend"] is None
+        assert order["lead_time_days"] == main.DEFAULT_INVENTORY_LEAD_TIME_DAYS
+
+    def test_mixed_forecast_and_inventory_order(self, client, isolated_submitted_orders):
+        """Test that forecast and inventory-only SKUs combine in one order; lead time is the max."""
+        forecast = client.get("/api/demand").json()[0]
+        forecast_skus = {f["item_sku"] for f in client.get("/api/demand").json()}
+        inv_item = next(i for i in client.get("/api/inventory").json() if i["sku"] not in forecast_skus)
+
+        response = client.post("/api/restocking/orders", json={"items": [
+            {"sku": forecast["item_sku"], "quantity": 2},
+            {"sku": inv_item["sku"], "quantity": 3},
+        ]})
+        assert response.status_code == 201
+
+        order = response.json()
+        by_sku = {l["sku"]: l for l in order["items"]}
+        # Forecast SKUs keep their forecast pricing, lead time and trend
+        assert by_sku[forecast["item_sku"]]["trend"] == forecast["trend"]
+        assert by_sku[forecast["item_sku"]]["lead_time_days"] == forecast["lead_time_days"]
+        assert by_sku[inv_item["sku"]]["trend"] is None
+        assert order["lead_time_days"] == max(forecast["lead_time_days"], main.DEFAULT_INVENTORY_LEAD_TIME_DAYS)
+        assert abs(order["total_cost"] - sum(l["line_total"] for l in order["items"])) < 0.01
 
     @pytest.mark.parametrize("quantity", [0, -5])
     def test_non_positive_quantity_rejected(self, client, isolated_submitted_orders, quantity):

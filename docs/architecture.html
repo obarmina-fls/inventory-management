@@ -165,6 +165,7 @@
     <tr><td><code>GET /api/demand</code></td><td>none</td><td>Demand forecasts</td></tr>
     <tr><td><code>GET /api/backlog</code></td><td>none</td><td>Backlog items, each with a <code>has_purchase_order</code> flag and <code>purchase_order_id</code></td></tr>
     <tr><td><code>POST /api/purchase-orders</code>, <code>GET /{backlog_item_id}</code></td><td>none</td><td>Create (one per backlog item; 409 on duplicate) or fetch a purchase order. In memory only.</td></tr>
+    <tr><td><code>GET /api/restocking/recommendations</code>, <code>GET/POST /api/restocking/orders</code></td><td>budget (recommendations)</td><td>Budget-fitted restock suggestions from demand forecasts, and submitted restock orders. POST takes only <code>sku</code> + <code>quantity</code>; price and lead time are resolved server-side from the forecast, or from inventory (default 14-day lead time) so low-stock items can be ordered from the Inventory page.</td></tr>
     <tr><td><code>GET/POST /api/tasks</code>, <code>PATCH/DELETE /{id}</code></td><td>none</td><td>"My Tasks" created in the UI. PATCH toggles pending/completed. In memory only.</td></tr>
     <tr><td><code>GET /api/spending/*</code></td><td>none</td><td>summary, monthly, categories, transactions</td></tr>
     <tr><td><code>GET /api/reports/*</code></td><td>warehouse, category, status, month</td><td>quarterly, monthly-trends</td></tr>
