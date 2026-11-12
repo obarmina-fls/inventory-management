@@ -36,6 +36,8 @@ export default {
     },
     export: {
       button: 'Export CSV',
+      pdfButton: 'Export PDF',
+      group: 'Export report',
       filters: 'Filters',
       period: 'Period',
       warehouse: 'Warehouse',

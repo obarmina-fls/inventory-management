@@ -35,6 +35,8 @@ export default {
     },
     export: {
       button: 'CSVエクスポート',
+      pdfButton: 'PDFエクスポート',
+      group: 'レポートのエクスポート',
       filters: 'フィルター',
       period: '期間',
       warehouse: '倉庫',
