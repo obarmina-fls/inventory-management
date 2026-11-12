@@ -1,140 +1,120 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="isOpen" class="modal-overlay" @click="close">
-        <div class="modal-container tasks-modal-container" @click.stop>
-          <div class="modal-header">
-            <h3 class="modal-title">{{ t('tasks.title') }}</h3>
-            <button class="close-button" @click="close">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+  <BaseModal :open="isOpen" :title="t('tasks.title')" max-width="900px" variant="wide" @close="close">
+    <div class="modal-body">
+      <!-- Add Task Form -->
+      <div class="task-form">
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="task-title">{{ t('tasks.taskTitle') }}</label>
+            <input
+              id="task-title"
+              v-model="newTask.title"
+              type="text"
+              :placeholder="t('tasks.taskTitlePlaceholder')"
+              class="task-input"
+              @keyup.enter="handleAddTask"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="task-priority">{{ t('tasks.priority') }}</label>
+            <BaseSelect id="task-priority" v-model="newTask.priority" size="lg">
+              <option value="high">{{ t('priority.high') }}</option>
+              <option value="medium">{{ t('priority.medium') }}</option>
+              <option value="low">{{ t('priority.low') }}</option>
+            </BaseSelect>
+          </div>
+
+          <div class="form-group">
+            <label for="task-due-date">{{ t('tasks.dueDate') }}</label>
+            <input id="task-due-date" v-model="newTask.dueDate" type="date" class="task-input" />
+          </div>
+
+          <div class="form-group-btn">
+            <button @click="handleAddTask" class="task-add-btn" :disabled="!newTask.title.trim() || !newTask.dueDate">
+              {{ t('tasks.addTask') }}
             </button>
-          </div>
-
-          <div class="modal-body">
-            <!-- Add Task Form -->
-            <div class="task-form">
-              <div class="form-row">
-                <div class="form-group flex-1">
-                  <label for="task-title">{{ t('tasks.taskTitle') }}</label>
-                  <input
-                    id="task-title"
-                    v-model="newTask.title"
-                    type="text"
-                    :placeholder="t('tasks.taskTitlePlaceholder')"
-                    class="task-input"
-                    @keyup.enter="handleAddTask"
-                  />
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="task-priority">{{ t('tasks.priority') }}</label>
-                  <BaseSelect
-                    id="task-priority"
-                    v-model="newTask.priority"
-                    size="lg"
-                  >
-                    <option value="high">{{ t('priority.high') }}</option>
-                    <option value="medium">{{ t('priority.medium') }}</option>
-                    <option value="low">{{ t('priority.low') }}</option>
-                  </BaseSelect>
-                </div>
-
-                <div class="form-group">
-                  <label for="task-due-date">{{ t('tasks.dueDate') }}</label>
-                  <input
-                    id="task-due-date"
-                    v-model="newTask.dueDate"
-                    type="date"
-                    class="task-input"
-                  />
-                </div>
-
-                <div class="form-group-btn">
-                  <button @click="handleAddTask" class="task-add-btn" :disabled="!newTask.title.trim() || !newTask.dueDate">
-                    {{ t('tasks.addTask') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="tasks-divider"></div>
-
-            <!-- Tasks List -->
-            <div v-if="sortedTasks.length === 0" class="no-tasks">
-              {{ t('tasks.noTasks') }}
-            </div>
-
-            <div v-else class="tasks-list">
-              <div
-                v-for="task in sortedTasks"
-                :key="task.id"
-                class="task-item"
-                :class="[`priority-${task.priority}`, { completed: task.status === 'completed' }]"
-              >
-                <div class="task-header">
-                  <div class="task-check-title">
-                    <input
-                      type="checkbox"
-                      :checked="task.status === 'completed'"
-                      @change="$emit('toggle-task', task.id)"
-                      class="task-checkbox"
-                    />
-                    <span class="task-title" @click="$emit('toggle-task', task.id)">{{ task.title }}</span>
-                  </div>
-                  <button @click="$emit('delete-task', task.id)" class="task-delete-btn" title="Delete task">
-                    ×
-                  </button>
-                </div>
-
-                <div class="task-footer">
-                  <span class="priority-badge" :class="task.priority">
-                    {{ translatePriority(task.priority) }}
-                  </span>
-                  <div class="task-due-date">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <rect x="2" y="3" width="10" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/>
-                      <path d="M4.5 1.5V4.5M9.5 1.5V4.5M2 6H12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                    </svg>
-                    {{ formatDueDate(task.dueDate) }}
-                  </div>
-                  <span class="status-badge" :class="getStatusClass(task.dueDate, task.status)">
-                    {{ getStatusText(task.dueDate, task.status) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="close">{{ t('profileDetails.close') }}</button>
           </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <div class="tasks-divider"></div>
+
+      <!-- Tasks List -->
+      <div v-if="sortedTasks.length === 0" class="no-tasks">
+        {{ t('tasks.noTasks') }}
+      </div>
+
+      <div v-else class="tasks-list">
+        <div
+          v-for="task in sortedTasks"
+          :key="task.id"
+          class="task-item"
+          :class="[`priority-${task.priority}`, { completed: task.status === 'completed' }]"
+        >
+          <div class="task-header">
+            <div class="task-check-title">
+              <input
+                type="checkbox"
+                :checked="task.status === 'completed'"
+                @change="$emit('toggle-task', task.id)"
+                class="task-checkbox"
+              />
+              <span class="task-title" @click="$emit('toggle-task', task.id)">{{ task.title }}</span>
+            </div>
+            <button @click="$emit('delete-task', task.id)" class="task-delete-btn" title="Delete task">×</button>
+          </div>
+
+          <div class="task-footer">
+            <span class="priority-badge" :class="task.priority">
+              {{ translatePriority(task.priority) }}
+            </span>
+            <div class="task-due-date">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="2" y="3" width="10" height="9" rx="1" stroke="currentColor" stroke-width="1.2" />
+                <path
+                  d="M4.5 1.5V4.5M9.5 1.5V4.5M2 6H12"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+              {{ formatDueDate(task.dueDate) }}
+            </div>
+            <span class="status-badge" :class="getStatusClass(task.dueDate, task.status)">
+              {{ getStatusText(task.dueDate, task.status) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" @click="close">{{ t('profileDetails.close') }}</button>
+    </div>
+  </BaseModal>
 </template>
 
 <script>
 import { ref, computed } from 'vue'
 import BaseSelect from './BaseSelect.vue'
+import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
 export default {
   name: 'TasksModal',
-  components: { BaseSelect },
+  components: { BaseSelect, BaseModal },
   props: {
     isOpen: {
       type: Boolean,
-      required: true
+      required: true,
     },
     tasks: {
       type: Array,
-      default: () => []
-    }
+      default: () => [],
+    },
   },
   emits: ['close', 'add-task', 'delete-task', 'toggle-task'],
   setup(props, { emit }) {
@@ -142,7 +122,7 @@ export default {
     const newTask = ref({
       title: '',
       priority: 'medium',
-      dueDate: ''
+      dueDate: '',
     })
 
     const sortedTasks = computed(() => {
@@ -159,12 +139,12 @@ export default {
         emit('add-task', {
           title: newTask.value.title.trim(),
           priority: newTask.value.priority,
-          dueDate: newTask.value.dueDate
+          dueDate: newTask.value.dueDate,
         })
         newTask.value = {
           title: '',
           priority: 'medium',
-          dueDate: ''
+          dueDate: '',
         }
       }
     }
@@ -191,7 +171,7 @@ export default {
       return date.toLocaleDateString(locale, {
         month: 'short',
         day: 'numeric',
-        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
       })
     }
 
@@ -224,9 +204,9 @@ export default {
 
     const translatePriority = (priority) => {
       const priorityMap = {
-        'high': t('priority.high'),
-        'medium': t('priority.medium'),
-        'low': t('priority.low')
+        high: t('priority.high'),
+        medium: t('priority.medium'),
+        low: t('priority.low'),
       }
       return priorityMap[priority] || priority
     }
@@ -240,74 +220,13 @@ export default {
       formatDueDate,
       getStatusClass,
       getStatusText,
-      translatePriority
+      translatePriority,
     }
-  }
+  },
 }
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-}
-
-.modal-container {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  width: 90%;
-  max-width: 700px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.tasks-modal-container {
-  max-width: 900px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-6) var(--space-8);
-  border-bottom: 2px solid var(--border);
-}
-
-.modal-title {
-  font-size: var(--text-2xl);
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  transition: all var(--duration) var(--ease);
-}
-
-.close-button:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
 .modal-body {
   padding: var(--space-8);
   overflow-y: auto;
@@ -399,7 +318,9 @@ label {
   border-radius: var(--radius-lg);
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--duration) var(--ease), opacity var(--duration) var(--ease);
+  transition:
+    transform var(--duration) var(--ease),
+    opacity var(--duration) var(--ease);
   white-space: nowrap;
   height: fit-content;
 }
@@ -591,26 +512,5 @@ label {
 .status-badge.completed {
   background: var(--success-soft);
   color: var(--success-ink);
-}
-
-/* Modal transitions */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-active .modal-container,
-.modal-leave-active .modal-container {
-  transition: transform 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-container,
-.modal-leave-to .modal-container {
-  transform: scale(0.9);
 }
 </style>
