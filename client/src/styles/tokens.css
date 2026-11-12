@@ -31,15 +31,15 @@
   /* Surfaces and text (slate) */
   --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-subtle: #f8fafc;   /* table header, inputs */
-  --surface-muted: #f1f5f9;    /* hover, progress tracks */
+  --surface-subtle: #f8fafc; /* table header, inputs */
+  --surface-muted: #f1f5f9; /* hover, progress tracks */
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
   --text: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
   --text-subtle: #94a3b8;
-  --grid-line: rgba(15, 23, 42, 0.035);   /* blueprint grid */
+  --grid-line: rgba(15, 23, 42, 0.035); /* blueprint grid */
   --overlay: rgba(15, 23, 42, 0.45);
 
   /* Sidebar */
@@ -60,12 +60,25 @@
   --accent-soft: #fffbeb;
 
   /* Status: green / blue / yellow / red, with soft tints */
-  --success: #10b981;  --success-ink: #047857;  --success-soft: #ecfdf5;  --success-border: #a7f3d0;
-  --info:    #2563eb;  --info-ink:    #1e40af;  --info-soft:    #eff6ff;  --info-border:    #bfdbfe;
-  --warning: #eab308;  --warning-ink: #854d0e;  --warning-soft: #fefce8;  --warning-border: #fde68a;
-  --danger:  #dc2626;  --danger-ink:  #991b1b;  --danger-soft:  #fef2f2;  --danger-border:  #fecaca;
-  --violet:  #8b5cf6;  --violet-soft: #f5f3ff;  /* extra chart series only */
-  --chart-bar: #64748b;  /* neutral bar fill that carries white labels */
+  --success: #10b981;
+  --success-ink: #047857;
+  --success-soft: #ecfdf5;
+  --success-border: #a7f3d0;
+  --info: #2563eb;
+  --info-ink: #1e40af;
+  --info-soft: #eff6ff;
+  --info-border: #bfdbfe;
+  --warning: #eab308;
+  --warning-ink: #854d0e;
+  --warning-soft: #fefce8;
+  --warning-border: #fde68a;
+  --danger: #dc2626;
+  --danger-ink: #991b1b;
+  --danger-soft: #fef2f2;
+  --danger-border: #fecaca;
+  --violet: #8b5cf6;
+  --violet-soft: #f5f3ff; /* extra chart series only */
+  --chart-bar: #64748b; /* neutral bar fill that carries white labels */
 
   /* Shape and depth */
   --radius-sm: 4px;
@@ -75,7 +88,9 @@
   --shadow-sm: 0 1px 1px rgba(15, 23, 42, 0.04);
   --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
-  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  /* Focus ring needs 3:1 against the surface (WCAG 1.4.11); amber on white is only ~2.15:1, so light mode uses a darker amber */
+  --focus-color: #b45309;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-color);
   --card-padding: var(--space-5);
   --control-height: 36px;
   color-scheme: light;
@@ -95,7 +110,7 @@
 
 /* Dark theme: overrides color tokens only (set via data-theme on <html> by useTheme).
    Status soft tints are low-alpha so they sit on any dark surface; inks are light for AA contrast. */
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
   color-scheme: dark;
 
   --bg: #0b1120;
@@ -115,15 +130,25 @@
   --sidebar-bg: #070d1a;
   --sidebar-border: rgba(255, 255, 255, 0.07);
 
+  /* Amber is 8.3:1 on the dark surface, so the focus ring keeps the accent */
+  --focus-color: var(--accent);
   --accent-hover: #fbbf24;
   --accent-soft: rgba(245, 158, 11, 0.14);
 
-  --success-ink: #6ee7b7;  --success-soft: rgba(16, 185, 129, 0.14);  --success-border: rgba(16, 185, 129, 0.35);
-  --info-ink:    #93c5fd;  --info-soft:    rgba(59, 130, 246, 0.16);  --info-border:    rgba(59, 130, 246, 0.4);
-  --warning-ink: #fde047;  --warning-soft: rgba(234, 179, 8, 0.14);   --warning-border: rgba(234, 179, 8, 0.35);
-  --danger-ink:  #fca5a5;  --danger-soft:  rgba(220, 38, 38, 0.18);   --danger-border:  rgba(248, 113, 113, 0.4);
+  --success-ink: #6ee7b7;
+  --success-soft: rgba(16, 185, 129, 0.14);
+  --success-border: rgba(16, 185, 129, 0.35);
+  --info-ink: #93c5fd;
+  --info-soft: rgba(59, 130, 246, 0.16);
+  --info-border: rgba(59, 130, 246, 0.4);
+  --warning-ink: #fde047;
+  --warning-soft: rgba(234, 179, 8, 0.14);
+  --warning-border: rgba(234, 179, 8, 0.35);
+  --danger-ink: #fca5a5;
+  --danger-soft: rgba(220, 38, 38, 0.18);
+  --danger-border: rgba(248, 113, 113, 0.4);
   --violet-soft: rgba(139, 92, 246, 0.16);
-  --chart-bar: #475569;  /* stays dark enough for white bar labels */
+  --chart-bar: #475569; /* stays dark enough for white bar labels */
 
   --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
@@ -131,5 +156,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --duration: 0ms; }
+  :root {
+    --duration: 0ms;
+  }
 }

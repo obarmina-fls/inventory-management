@@ -1,111 +1,103 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="isOpen && inventoryItem" class="modal-overlay" @click="close">
-        <div class="modal-container" @click.stop>
-          <div class="modal-header">
-            <h3 class="modal-title">Inventory Item Details</h3>
-            <button class="close-button" @click="close">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
+  <BaseModal :open="Boolean(isOpen && inventoryItem)" title="Inventory Item Details" max-width="700px" @close="close">
+    <div class="modal-body">
+      <div class="item-header">
+        <div class="item-icon" :class="getStockIconClass()">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="12" width="32" height="28" rx="2" stroke="currentColor" stroke-width="2.5" />
+            <path d="M16 8V16M32 8V16M8 20H40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M16 28H32M16 34H24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="item-title-section">
+          <h4 class="item-name">{{ translateProductName(inventoryItem.name) }}</h4>
+          <div class="item-sku">SKU: {{ inventoryItem.sku }}</div>
+        </div>
+        <span class="stock-badge" :class="getStockStatusClass()">
+          {{ getStockStatus() }}
+        </span>
+      </div>
+
+      <div class="stock-summary">
+        <div class="summary-card primary">
+          <div class="summary-label">Quantity on Hand</div>
+          <div class="summary-value">{{ inventoryItem.quantity_on_hand }} units</div>
+        </div>
+        <div class="summary-card" :class="getSummaryCardClass()">
+          <div class="summary-label">Stock Level</div>
+          <div class="summary-value">{{ stockPercentage }}%</div>
+          <div class="summary-subtitle">vs. reorder point</div>
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Category</div>
+          <div class="info-value">{{ inventoryItem.category }}</div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">Location</div>
+          <div class="info-value">{{ inventoryItem.location }}</div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">Reorder Point</div>
+          <div class="info-value">{{ inventoryItem.reorder_point }} units</div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">Units Remaining</div>
+          <div class="info-value">
+            <span
+              :style="{
+                color:
+                  inventoryItem.quantity_on_hand <= inventoryItem.reorder_point ? 'var(--danger)' : 'var(--success)',
+              }"
+            >
+              {{ inventoryItem.quantity_on_hand - inventoryItem.reorder_point }} units
+            </span>
           </div>
+        </div>
 
-          <div class="modal-body">
-            <div class="item-header">
-              <div class="item-icon" :class="getStockIconClass()">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect x="8" y="12" width="32" height="28" rx="2" stroke="currentColor" stroke-width="2.5"/>
-                  <path d="M16 8V16M32 8V16M8 20H40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                  <path d="M16 28H32M16 34H24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <div class="item-title-section">
-                <h4 class="item-name">{{ translateProductName(inventoryItem.name) }}</h4>
-                <div class="item-sku">SKU: {{ inventoryItem.sku }}</div>
-              </div>
-              <span class="stock-badge" :class="getStockStatusClass()">
-                {{ getStockStatus() }}
-              </span>
-            </div>
+        <div class="info-item">
+          <div class="info-label">Unit Cost</div>
+          <div class="info-value">{{ currencySymbol }}{{ inventoryItem.unit_cost.toFixed(2) }}</div>
+        </div>
 
-            <div class="stock-summary">
-              <div class="summary-card primary">
-                <div class="summary-label">Quantity on Hand</div>
-                <div class="summary-value">{{ inventoryItem.quantity_on_hand }} units</div>
-              </div>
-              <div class="summary-card" :class="getSummaryCardClass()">
-                <div class="summary-label">Stock Level</div>
-                <div class="summary-value">{{ stockPercentage }}%</div>
-                <div class="summary-subtitle">vs. reorder point</div>
-              </div>
-            </div>
-
-            <div class="info-grid">
-              <div class="info-item">
-                <div class="info-label">Category</div>
-                <div class="info-value">{{ inventoryItem.category }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Location</div>
-                <div class="info-value">{{ inventoryItem.location }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Reorder Point</div>
-                <div class="info-value">{{ inventoryItem.reorder_point }} units</div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Units Remaining</div>
-                <div class="info-value">
-                  <span :style="{ color: inventoryItem.quantity_on_hand <= inventoryItem.reorder_point ? 'var(--danger)' : 'var(--success)' }">
-                    {{ inventoryItem.quantity_on_hand - inventoryItem.reorder_point }} units
-                  </span>
-                </div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Unit Cost</div>
-                <div class="info-value">{{ currencySymbol }}{{ inventoryItem.unit_cost.toFixed(2) }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Total Value</div>
-                <div class="info-value total-value">
-                  {{ currencySymbol }}{{ totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) }}
-                </div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Warehouse</div>
-                <div class="info-value">{{ translateWarehouse(inventoryItem.location) }}</div>
-              </div>
-
-              <div class="info-item">
-                <div class="info-label">Status</div>
-                <div class="info-value">
-                  <span :class="['badge', getStockStatusClass()]">
-                    {{ getStockStatus() }}
-                  </span>
-                </div>
-              </div>
-            </div>
+        <div class="info-item">
+          <div class="info-label">Total Value</div>
+          <div class="info-value total-value">
+            {{ currencySymbol
+            }}{{ totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
           </div>
+        </div>
 
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="close">Close</button>
+        <div class="info-item">
+          <div class="info-label">Warehouse</div>
+          <div class="info-value">{{ translateWarehouse(inventoryItem.location) }}</div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">Status</div>
+          <div class="info-value">
+            <span :class="['badge', getStockStatusClass()]">
+              {{ getStockStatus() }}
+            </span>
           </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" @click="close">Close</button>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
 const { currentCurrency, translateProductName, translateWarehouse } = useI18n()
@@ -117,12 +109,12 @@ const currencySymbol = computed(() => {
 const props = defineProps({
   isOpen: {
     type: Boolean,
-    default: false
+    default: false,
   },
   inventoryItem: {
     type: Object,
-    default: null
-  }
+    default: null,
+  },
 })
 
 const emit = defineEmits(['close'])
@@ -175,65 +167,6 @@ const getSummaryCardClass = () => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  padding: var(--space-4);
-}
-
-.modal-container {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  max-width: 700px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-6);
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-title {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.025em;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  transition: all var(--duration) var(--ease);
-}
-
-.close-button:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
 .modal-body {
   flex: 1;
   overflow-y: auto;
@@ -425,26 +358,5 @@ const getSummaryCardClass = () => {
 .btn-secondary:hover {
   background: var(--border);
   border-color: var(--border-strong);
-}
-
-/* Modal transition animations */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity var(--duration) var(--ease);
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .modal-container,
-.modal-leave-active .modal-container {
-  transition: transform var(--duration) var(--ease);
-}
-
-.modal-enter-from .modal-container,
-.modal-leave-to .modal-container {
-  transform: scale(0.95);
 }
 </style>

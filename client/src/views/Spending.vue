@@ -107,7 +107,15 @@
             </div>
             <div class="chart-area">
               <div v-for="month in monthlySpending" :key="month.month" class="bar-group">
-                <div class="stacked-bar" @click="showCostDetail(month)">
+                <div
+                  class="stacked-bar"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="t('finance.viewCostBreakdown', { month: translateMonth(month.month) })"
+                  @click="showCostDetail(month)"
+                  @keydown.enter.self.prevent="showCostDetail(month)"
+                  @keydown.space.self.prevent="showCostDetail(month)"
+                >
                   <div
                     class="bar-segment procurement"
                     :style="{ height: getBarHeight(month.procurement) + '%' }"
@@ -182,7 +190,10 @@
                   v-for="transaction in recentTransactions"
                   :key="transaction.id"
                   class="clickable-row"
+                  tabindex="0"
                   @click="handleTransactionClick(transaction)"
+                  @keydown.enter.self.prevent="handleTransactionClick(transaction)"
+                  @keydown.space.self.prevent="handleTransactionClick(transaction)"
                 >
                   <td class="transaction-id">{{ transaction.id.toString().padStart(3, '0') }}</td>
                   <td class="transaction-description">{{ transaction.description }}</td>
@@ -718,6 +729,12 @@ export default {
 
 .stacked-bar:hover {
   opacity: 0.85;
+}
+
+.stacked-bar:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .bar-segment {

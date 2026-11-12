@@ -1,132 +1,119 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="isOpen && backlogItem" class="modal-overlay" @click="close">
-        <div class="modal-container" @click.stop>
-          <div class="modal-header">
-            <h3 class="modal-title">
-              {{ mode === 'view' ? t('purchaseOrder.viewTitle') : t('purchaseOrder.createTitle') }}
-            </h3>
-            <button class="close-button" :aria-label="t('common.close')" @click="close">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="modal-body">
-            <div class="item-summary">
-              <div>
-                <div class="item-name">{{ translateProductName(backlogItem.item_name) }}</div>
-                <div class="item-sku">SKU: {{ backlogItem.item_sku }}</div>
-              </div>
-              <div class="item-shortage">
-                {{ t('purchaseOrder.shortage') }}: {{ shortage }} {{ t('purchaseOrder.units') }}
-              </div>
-            </div>
-
-            <!-- View mode -->
-            <template v-if="mode === 'view'">
-              <div v-if="loadingPO" class="state-message">{{ t('purchaseOrder.loading') }}</div>
-              <div v-else-if="loadError" class="error">{{ loadError }}</div>
-              <div v-else-if="purchaseOrder" class="info-grid">
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.poNumber') }}</div>
-                  <div class="info-value order-id">{{ purchaseOrder.id }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.status') }}</div>
-                  <div class="info-value">
-                    <span class="badge info">{{ purchaseOrder.status }}</span>
-                  </div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.supplier') }}</div>
-                  <div class="info-value">{{ purchaseOrder.supplier_name }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.quantity') }}</div>
-                  <div class="info-value">{{ purchaseOrder.quantity }} {{ t('purchaseOrder.units') }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.unitCost') }}</div>
-                  <div class="info-value">{{ formatUsd(purchaseOrder.unit_cost) }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.totalCost') }}</div>
-                  <div class="info-value">{{ formatUsd(purchaseOrder.quantity * purchaseOrder.unit_cost) }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.expectedDelivery') }}</div>
-                  <div class="info-value">{{ formatDate(purchaseOrder.expected_delivery_date) }}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">{{ t('purchaseOrder.createdDate') }}</div>
-                  <div class="info-value">{{ formatDate(purchaseOrder.created_date) }}</div>
-                </div>
-                <div v-if="purchaseOrder.notes" class="info-item notes-item">
-                  <div class="info-label">{{ t('purchaseOrder.notes') }}</div>
-                  <div class="info-value notes-value">{{ purchaseOrder.notes }}</div>
-                </div>
-              </div>
-            </template>
-
-            <!-- Create mode -->
-            <form v-else id="po-form" novalidate @submit.prevent="submit">
-              <div class="form-grid">
-                <div class="form-field full" :class="{ invalid: errors.supplier_name }">
-                  <label for="po-supplier">{{ t('purchaseOrder.supplier') }}</label>
-                  <input id="po-supplier" v-model="form.supplier_name" type="text" maxlength="200" />
-                  <span v-if="errors.supplier_name" class="field-error">{{ errors.supplier_name }}</span>
-                </div>
-                <div class="form-field" :class="{ invalid: errors.quantity }">
-                  <label for="po-quantity">{{ t('purchaseOrder.quantity') }}</label>
-                  <input id="po-quantity" v-model="form.quantity" type="number" min="1" step="1" />
-                  <span v-if="errors.quantity" class="field-error">{{ errors.quantity }}</span>
-                </div>
-                <div class="form-field" :class="{ invalid: errors.unit_cost }">
-                  <label for="po-unit-cost">{{ t('purchaseOrder.unitCost') }}</label>
-                  <input id="po-unit-cost" v-model="form.unit_cost" type="number" min="0" step="0.01" />
-                  <span v-if="errors.unit_cost" class="field-error">{{ errors.unit_cost }}</span>
-                </div>
-                <div class="form-field full" :class="{ invalid: errors.expected_delivery_date }">
-                  <label for="po-date">{{ t('purchaseOrder.expectedDelivery') }}</label>
-                  <input id="po-date" v-model="form.expected_delivery_date" type="date" />
-                  <span v-if="errors.expected_delivery_date" class="field-error">{{
-                    errors.expected_delivery_date
-                  }}</span>
-                </div>
-                <div class="form-field full" :class="{ invalid: errors.notes }">
-                  <label for="po-notes">{{ t('purchaseOrder.notes') }}</label>
-                  <textarea
-                    id="po-notes"
-                    v-model="form.notes"
-                    rows="3"
-                    maxlength="1000"
-                    :placeholder="t('purchaseOrder.notesPlaceholder')"
-                  ></textarea>
-                  <span v-if="errors.notes" class="field-error">{{ errors.notes }}</span>
-                </div>
-              </div>
-              <div v-if="submitError" class="error server-error" role="alert">{{ submitError }}</div>
-            </form>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" @click="close">{{ t('common.close') }}</button>
-            <button v-if="mode !== 'view'" type="submit" form="po-form" class="btn-primary" :disabled="saving">
-              {{ saving ? t('purchaseOrder.saving') : t('purchaseOrder.submit') }}
-            </button>
-          </div>
+  <BaseModal
+    :open="Boolean(isOpen && backlogItem)"
+    :title="mode === 'view' ? t('purchaseOrder.viewTitle') : t('purchaseOrder.createTitle')"
+    max-width="640px"
+    @close="close"
+  >
+    <div class="modal-body">
+      <div class="item-summary">
+        <div>
+          <div class="item-name">{{ translateProductName(backlogItem.item_name) }}</div>
+          <div class="item-sku">SKU: {{ backlogItem.item_sku }}</div>
+        </div>
+        <div class="item-shortage">
+          {{ t('purchaseOrder.shortage') }}: {{ shortage }} {{ t('purchaseOrder.units') }}
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- View mode -->
+      <template v-if="mode === 'view'">
+        <div v-if="loadingPO" class="state-message">{{ t('purchaseOrder.loading') }}</div>
+        <div v-else-if="loadError" class="error">{{ loadError }}</div>
+        <div v-else-if="purchaseOrder" class="info-grid">
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.poNumber') }}</div>
+            <div class="info-value order-id">{{ purchaseOrder.id }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.status') }}</div>
+            <div class="info-value">
+              <span class="badge info">{{ purchaseOrder.status }}</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.supplier') }}</div>
+            <div class="info-value">{{ purchaseOrder.supplier_name }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.quantity') }}</div>
+            <div class="info-value">{{ purchaseOrder.quantity }} {{ t('purchaseOrder.units') }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.unitCost') }}</div>
+            <div class="info-value">{{ formatUsd(purchaseOrder.unit_cost) }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.totalCost') }}</div>
+            <div class="info-value">{{ formatUsd(purchaseOrder.quantity * purchaseOrder.unit_cost) }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.expectedDelivery') }}</div>
+            <div class="info-value">{{ formatDate(purchaseOrder.expected_delivery_date) }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ t('purchaseOrder.createdDate') }}</div>
+            <div class="info-value">{{ formatDate(purchaseOrder.created_date) }}</div>
+          </div>
+          <div v-if="purchaseOrder.notes" class="info-item notes-item">
+            <div class="info-label">{{ t('purchaseOrder.notes') }}</div>
+            <div class="info-value notes-value">{{ purchaseOrder.notes }}</div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Create mode -->
+      <form v-else id="po-form" novalidate @submit.prevent="submit">
+        <div class="form-grid">
+          <div class="form-field full" :class="{ invalid: errors.supplier_name }">
+            <label for="po-supplier">{{ t('purchaseOrder.supplier') }}</label>
+            <input id="po-supplier" v-model="form.supplier_name" type="text" maxlength="200" />
+            <span v-if="errors.supplier_name" class="field-error">{{ errors.supplier_name }}</span>
+          </div>
+          <div class="form-field" :class="{ invalid: errors.quantity }">
+            <label for="po-quantity">{{ t('purchaseOrder.quantity') }}</label>
+            <input id="po-quantity" v-model="form.quantity" type="number" min="1" step="1" />
+            <span v-if="errors.quantity" class="field-error">{{ errors.quantity }}</span>
+          </div>
+          <div class="form-field" :class="{ invalid: errors.unit_cost }">
+            <label for="po-unit-cost">{{ t('purchaseOrder.unitCost') }}</label>
+            <input id="po-unit-cost" v-model="form.unit_cost" type="number" min="0" step="0.01" />
+            <span v-if="errors.unit_cost" class="field-error">{{ errors.unit_cost }}</span>
+          </div>
+          <div class="form-field full" :class="{ invalid: errors.expected_delivery_date }">
+            <label for="po-date">{{ t('purchaseOrder.expectedDelivery') }}</label>
+            <input id="po-date" v-model="form.expected_delivery_date" type="date" />
+            <span v-if="errors.expected_delivery_date" class="field-error">{{ errors.expected_delivery_date }}</span>
+          </div>
+          <div class="form-field full" :class="{ invalid: errors.notes }">
+            <label for="po-notes">{{ t('purchaseOrder.notes') }}</label>
+            <textarea
+              id="po-notes"
+              v-model="form.notes"
+              rows="3"
+              maxlength="1000"
+              :placeholder="t('purchaseOrder.notesPlaceholder')"
+            ></textarea>
+            <span v-if="errors.notes" class="field-error">{{ errors.notes }}</span>
+          </div>
+        </div>
+        <div v-if="submitError" class="error server-error" role="alert">{{ submitError }}</div>
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" @click="close">{{ t('common.close') }}</button>
+      <button v-if="mode !== 'view'" type="submit" form="po-form" class="btn-primary" :disabled="saving">
+        {{ saving ? t('purchaseOrder.saving') : t('purchaseOrder.submit') }}
+      </button>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { api } from '../api'
+import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
 const { t, currentLocale, translateProductName } = useI18n()
@@ -301,65 +288,6 @@ const formatDate = (value) => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  padding: var(--space-4);
-}
-
-.modal-container {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  max-width: 640px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-6);
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-title {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.025em;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  transition: all var(--duration) var(--ease);
-}
-
-.close-button:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
 .modal-body {
   flex: 1;
   overflow-y: auto;
@@ -422,27 +350,6 @@ const formatDate = (value) => {
 .btn-secondary:hover {
   background: var(--border);
   border-color: var(--border-strong);
-}
-
-/* Modal transition animations */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity var(--duration) var(--ease);
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .modal-container,
-.modal-leave-active .modal-container {
-  transition: transform var(--duration) var(--ease);
-}
-
-.modal-enter-from .modal-container,
-.modal-leave-to .modal-container {
-  transform: scale(0.95);
 }
 
 .item-summary {

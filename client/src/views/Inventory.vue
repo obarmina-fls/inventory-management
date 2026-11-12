@@ -23,6 +23,7 @@
               v-model="searchQuery"
               type="text"
               :placeholder="t('inventory.searchPlaceholder')"
+              :aria-label="t('inventory.searchLabel')"
               class="search-input"
             />
             <button
@@ -30,6 +31,7 @@
               @click="searchQuery = ''"
               class="clear-search"
               :title="t('inventory.clearSearch')"
+              :aria-label="t('inventory.clearSearch')"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -57,7 +59,15 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in filteredItems" :key="item.id" class="clickable-row" @click="showItemDetail(item)">
+              <tr
+                v-for="item in filteredItems"
+                :key="item.id"
+                class="clickable-row"
+                tabindex="0"
+                @click="showItemDetail(item)"
+                @keydown.enter.self.prevent="showItemDetail(item)"
+                @keydown.space.self.prevent="showItemDetail(item)"
+              >
                 <td class="mono">
                   <strong>{{ item.sku }}</strong>
                 </td>
@@ -272,7 +282,7 @@ export default {
 }
 
 .search-input::placeholder {
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 .clear-search {

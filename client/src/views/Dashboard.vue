@@ -263,41 +263,49 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in backlogItems" :key="item.id">
-                  <td @click="showBacklogDetail(item)" style="cursor: pointer">
+                <tr
+                  v-for="item in backlogItems"
+                  :key="item.id"
+                  class="clickable-row"
+                  tabindex="0"
+                  @click="showBacklogDetail(item)"
+                  @keydown.enter.self.prevent="showBacklogDetail(item)"
+                  @keydown.space.self.prevent="showBacklogDetail(item)"
+                >
+                  <td>
                     <strong>{{ item.order_id }}</strong>
                   </td>
-                  <td @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td>
                     <strong>{{ item.item_sku }}</strong>
                   </td>
-                  <td @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td>
                     {{ translateProductName(item.item_name) }}
                   </td>
-                  <td class="num" @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td class="num">
                     {{ item.quantity_needed }}
                   </td>
-                  <td class="num" @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td class="num">
                     {{ item.quantity_available }}
                   </td>
-                  <td class="num" @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td class="num">
                     <span class="badge danger">
                       {{ Math.abs(item.quantity_needed - item.quantity_available) }}
                       {{ t('dashboard.inventoryShortages.unitsShort') }}
                     </span>
                   </td>
-                  <td class="num" @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td class="num">
                     <span
                       :style="{ color: item.days_delayed > 7 ? 'var(--danger)' : 'var(--warning)', fontWeight: 600 }"
                     >
                       {{ item.days_delayed }} {{ t('dashboard.inventoryShortages.days') }}
                     </span>
                   </td>
-                  <td @click="showBacklogDetail(item)" style="cursor: pointer">
+                  <td>
                     <span :class="['badge', item.priority]">
                       {{ translatePriority(item.priority) }}
                     </span>
                   </td>
-                  <td>
+                  <td @click.stop>
                     <button v-if="!item.purchase_order_id" @click.stop="openPOModal(item)" class="po-button create">
                       {{ t('dashboard.inventoryShortages.createPO') }}
                     </button>
@@ -330,7 +338,15 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in topProducts" :key="item.sku" class="clickable-row" @click="showProductDetail(item)">
+                <tr
+                  v-for="item in topProducts"
+                  :key="item.sku"
+                  class="clickable-row"
+                  tabindex="0"
+                  @click="showProductDetail(item)"
+                  @keydown.enter.self.prevent="showProductDetail(item)"
+                  @keydown.space.self.prevent="showProductDetail(item)"
+                >
                   <td>
                     <strong>{{ translateProductName(item.name) }}</strong>
                   </td>
