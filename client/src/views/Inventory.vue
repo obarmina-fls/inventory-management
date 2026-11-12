@@ -11,6 +11,14 @@
           <h3 ref="stockTitle" class="card-title" tabindex="-1">
             {{ t('inventory.stockLevels') }} ({{ filteredItems.length }} {{ t('inventory.skus') }})
           </h3>
+          <button
+            type="button"
+            class="btn-primary restock-all"
+            :disabled="lowStockItems.length === 0"
+            @click="openRestock(lowStockItems)"
+          >
+            {{ t('inventory.restockLowStock', { n: lowStockItems.length }) }}
+          </button>
           <div class="search-box">
             <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
               <path
@@ -56,11 +64,12 @@
                 <th class="num">{{ t('inventory.table.totalValue') }}</th>
                 <th>{{ t('inventory.table.location') }}</th>
                 <th>{{ t('inventory.table.status') }}</th>
+                <th><span class="sr-only">{{ t('inventory.restockRow') }}</span></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="filteredItems.length === 0">
-                <td colspan="9" class="table-empty-cell">
+                <td colspan="10" class="table-empty-cell">
                   <div>{{ t('common.noMatch') }}</div>
                   <button type="button" class="btn-reset" @click="resetAll">
                     {{ t('common.resetFiltersAndSearch') }}
@@ -103,6 +112,19 @@
                     {{ getStockStatus(item) }}
                   </span>
                 </td>
+                <td>
+                  <button
+                    v-if="isLowStock(item)"
+                    type="button"
+                    class="btn-row"
+                    :aria-label="t('inventory.restockRowLabel', { sku: item.sku })"
+                    @click.stop="openRestock([item])"
+                    @keydown.enter.stop
+                    @keydown.space.stop
+                  >
+                    {{ t('inventory.restockRow') }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -112,6 +134,7 @@
     </AsyncStatus>
 
     <InventoryDetailModal :is-open="showItemModal" :inventory-item="selectedItem" @close="showItemModal = false" />
+    <RestockModal :show="showRestockModal" :items="restockItems" @close="showRestockModal = false" />
   </div>
 </template>
 
@@ -124,6 +147,7 @@ import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
 import InventoryDetailModal from '../components/InventoryDetailModal.vue'
+import RestockModal from '../components/RestockModal.vue'
 
 export default {
   name: 'Inventory',
@@ -131,6 +155,7 @@ export default {
     AsyncStatus,
     BasePagination,
     InventoryDetailModal,
+    RestockModal,
   },
   setup() {
     const { t, currentCurrency, translateProductName, translateWarehouse } = useI18n()
@@ -263,6 +288,18 @@ export default {
       return categoryMap[category] || category
     }
 
+    // Low stock = at or below reorder point (same rule as the 'lowStock' status)
+    const isLowStock = (item) => getStockStatusKey(item) === 'lowStock'
+    // All low-stock items of the filtered list (not just the current page)
+    const lowStockItems = computed(() => filteredItems.value.filter(isLowStock))
+
+    const showRestockModal = ref(false)
+    const restockItems = ref([])
+    const openRestock = (list) => {
+      restockItems.value = list.slice()
+      showRestockModal.value = true
+    }
+
     const showItemDetail = (item) => {
       selectedItem.value = item
       showItemModal.value = true
@@ -289,6 +326,11 @@ export default {
       showItemModal,
       selectedItem,
       showItemDetail,
+      isLowStock,
+      lowStockItems,
+      showRestockModal,
+      restockItems,
+      openRestock,
       currencySymbol,
       translateProductName,
       translateWarehouse,
@@ -300,6 +342,27 @@ export default {
 <style scoped>
 .card-header {
   flex-wrap: wrap;
+}
+
+.restock-all {
+  margin-left: auto;
+}
+
+.btn-row {
+  height: 28px;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--danger-ink);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-row:hover {
+  background: var(--danger-soft);
 }
 
 .search-box {

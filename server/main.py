@@ -200,7 +200,8 @@ class RestockItem(BaseModel):
     unit_cost: float
     line_total: float
     lead_time_days: int
-    trend: str
+    # None for lines ordered straight from inventory (low-stock restock), which have no forecast
+    trend: Optional[str] = None
 
 class RestockRecommendation(BaseModel):
     budget: float
@@ -240,6 +241,10 @@ _submit_lock = threading.Lock()
 # memory only, but are capped for the same reason.
 MAX_SUBMITTED_ORDERS = 1_000
 MAX_TASKS = 500
+
+# Inventory items carry no supplier lead time; orders for SKUs that are only in inventory
+# (e.g. low-stock restocks from the Inventory page) assume this standard lead time.
+DEFAULT_INVENTORY_LEAD_TIME_DAYS = 14
 
 # Trend rank used for restock priority: rising demand is the most urgent to cover.
 TREND_PRIORITY = {'increasing': 0, 'stable': 1, 'decreasing': 2}
@@ -372,24 +377,36 @@ def _order_seq(order: dict) -> int:
 @app.post("/api/restocking/orders", response_model=SubmittedOrder, status_code=201)
 def submit_restock_order(request: SubmitRestockRequest):
     """Submit a restocking order. Prices and lead times are looked up server-side
-    rather than trusted from the client."""
+    rather than trusted from the client.
+
+    A SKU is resolved from demand forecasts first (they carry supplier lead time and
+    trend), then from inventory, so low-stock items can be restocked from the Inventory
+    page even when they have no forecast."""
     forecasts_by_sku = {f['item_sku']: f for f in demand_forecasts}
+    inventory_by_sku = {i['sku']: i for i in inventory_items}
     skus = [line.sku for line in request.items]
     if len(skus) != len(set(skus)):
         raise HTTPException(status_code=400, detail="Duplicate SKUs in order; combine quantities into one line")
     lines = []
     for line in request.items:
         forecast = forecasts_by_sku.get(line.sku)
-        if not forecast:
+        if forecast:
+            name, unit_cost = forecast['item_name'], forecast['unit_cost']
+            lead_time_days, trend = forecast['lead_time_days'], forecast['trend']
+        elif line.sku in inventory_by_sku:
+            item = inventory_by_sku[line.sku]
+            name, unit_cost = item['name'], item['unit_cost']
+            lead_time_days, trend = DEFAULT_INVENTORY_LEAD_TIME_DAYS, None
+        else:
             raise HTTPException(status_code=400, detail=f"Unknown SKU: {line.sku}")
         lines.append({
             'sku': line.sku,
-            'name': forecast['item_name'],
+            'name': name,
             'quantity': line.quantity,
-            'unit_cost': forecast['unit_cost'],
-            'line_total': round(line.quantity * forecast['unit_cost'], 2),
-            'lead_time_days': forecast['lead_time_days'],
-            'trend': forecast['trend'],
+            'unit_cost': unit_cost,
+            'line_total': round(line.quantity * unit_cost, 2),
+            'lead_time_days': lead_time_days,
+            'trend': trend,
         })
 
     # The order arrives complete only when its slowest item arrives.
