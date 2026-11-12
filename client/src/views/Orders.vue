@@ -81,7 +81,9 @@
 
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">{{ t('orders.allOrders') }} ({{ orders.length }})</h3>
+          <h3 ref="allOrdersTitle" class="card-title" tabindex="-1">
+            {{ t('orders.allOrders') }} ({{ orders.length }})
+          </h3>
         </div>
         <div class="table-container">
           <table class="orders-table">
@@ -103,7 +105,7 @@
                   <button type="button" class="btn-reset" @click="resetFilters">{{ t('common.resetFilters') }}</button>
                 </td>
               </tr>
-              <tr v-for="order in orders" :key="order.id">
+              <tr v-for="order in pagedOrders" :key="order.id">
                 <td class="col-order-number">
                   <strong>{{ order.order_number }}</strong>
                 </td>
@@ -139,6 +141,7 @@
             </tbody>
           </table>
         </div>
+        <BasePagination :page="page" :page-size="PAGE_SIZE" :total="orders.length" @update:page="onPageChange" />
       </div>
     </AsyncStatus>
   </div>
@@ -146,8 +149,9 @@
 
 <script>
 import AsyncStatus from '../components/AsyncStatus.vue'
+import BasePagination from '../components/BasePagination.vue'
 import { useAsyncData } from '../composables/useAsyncData'
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
@@ -155,7 +159,7 @@ import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Orders',
-  components: { AsyncStatus },
+  components: { AsyncStatus, BasePagination },
   setup() {
     const { t, currentLocale, currentCurrency, translateProductName, translateCustomerName } = useI18n()
 
@@ -193,6 +197,34 @@ export default {
       }
       return counts
     })
+
+    // Client-side paging over the full, sorted list. Stats above keep using `orders` (the full list).
+    const PAGE_SIZE = 25
+    const page = ref(1)
+    const allOrdersTitle = ref(null)
+
+    // Clamp: a refetch or shrinking list can leave the current page past the end
+    const pageCount = computed(() => Math.max(1, Math.ceil(orders.value.length / PAGE_SIZE)))
+    watch(pageCount, (count) => {
+      if (page.value > count) page.value = count
+    })
+    // Filter change -> back to page 1 (fires immediately, before the refetch resolves)
+    watch([selectedPeriod, selectedLocation, selectedCategory, selectedStatus], () => {
+      page.value = 1
+    })
+
+    const pagedOrders = computed(() => {
+      const start = (page.value - 1) * PAGE_SIZE
+      return orders.value.slice(start, start + PAGE_SIZE)
+    })
+
+    // Only user-initiated page changes move focus, so keyboard users are not left at the old bottom position
+    const onPageChange = async (next) => {
+      page.value = next
+      await nextTick()
+      allOrdersTitle.value?.focus({ preventScroll: true })
+      allOrdersTitle.value?.scrollIntoView({ block: 'start' })
+    }
 
     const getOrderStatusClass = (status) => {
       const statusMap = {
@@ -233,6 +265,11 @@ export default {
       loaded,
       reload,
       orders,
+      pagedOrders,
+      page,
+      PAGE_SIZE,
+      onPageChange,
+      allOrdersTitle,
       resetFilters,
       submittedOrders,
       currentCurrency,

@@ -2,7 +2,7 @@ import math
 import os
 import threading
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from typing import Annotated, List, Optional
@@ -66,6 +66,8 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
+    # Lets the browser read the total behind a paginated list response
+    expose_headers=["X-Total-Count"],
 )
 
 # Compress JSON responses over 1KB (/api/orders is ~110KB raw, ~10x smaller gzipped)
@@ -92,6 +94,20 @@ async def cache_control(request, call_next):
 MonthParam = Annotated[Optional[str], Query(pattern=r"^(all|\d{4}-(0[1-9]|1[0-2])|Q[1-4]-\d{4})$")]
 # warehouse/category/status stay free text (matching is case-insensitive) but are length-bounded
 FilterParam = Annotated[Optional[str], Query(max_length=50)]
+
+# Opt-in pagination for list endpoints. Without `limit` the full list is returned, exactly as
+# before, because the dashboard and status counts aggregate over the whole list client-side.
+# The body stays a plain JSON array (no envelope) so existing clients keep working; the
+# pre-pagination total is always sent in the X-Total-Count header.
+MAX_PAGE_SIZE = 500
+LimitParam = Annotated[Optional[int], Query(ge=1, le=MAX_PAGE_SIZE)]
+OffsetParam = Annotated[int, Query(ge=0)]
+
+def paginate(items: list, response: Response, limit: Optional[int], offset: int) -> list:
+    """Slice an already filtered and sorted list, and report its full length in X-Total-Count."""
+    response.headers["X-Total-Count"] = str(len(items))
+    end = None if limit is None else offset + limit
+    return items[offset:end]
 
 # Data models
 class InventoryItem(BaseModel):
@@ -289,11 +305,14 @@ def root():
 
 @app.get("/api/inventory", response_model=List[InventoryItem])
 def get_inventory(
+    response: Response,
     warehouse: FilterParam = None,
-    category: FilterParam = None
+    category: FilterParam = None,
+    limit: LimitParam = None,
+    offset: OffsetParam = 0,
 ):
-    """Get all inventory items with optional filtering"""
-    return apply_filters(inventory_items, warehouse, category)
+    """Get inventory items with optional filtering and pagination"""
+    return paginate(apply_filters(inventory_items, warehouse, category), response, limit, offset)
 
 @app.get("/api/inventory/{item_id}", response_model=InventoryItem)
 def get_inventory_item(item_id: str):
@@ -305,15 +324,18 @@ def get_inventory_item(item_id: str):
 
 @app.get("/api/orders", response_model=List[Order])
 def get_orders(
+    response: Response,
     warehouse: FilterParam = None,
     category: FilterParam = None,
     status: FilterParam = None,
-    month: MonthParam = None
+    month: MonthParam = None,
+    limit: LimitParam = None,
+    offset: OffsetParam = 0,
 ):
-    """Get all orders with optional filtering"""
+    """Get orders with optional filtering and pagination"""
     filtered_orders = apply_filters(orders, warehouse, category, status)
     filtered_orders = filter_by_month(filtered_orders, month)
-    return filtered_orders
+    return paginate(filtered_orders, response, limit, offset)
 
 @app.get("/api/orders/{order_id}", response_model=Order)
 def get_order(order_id: str):
@@ -324,9 +346,9 @@ def get_order(order_id: str):
     return order
 
 @app.get("/api/demand", response_model=List[DemandForecast])
-def get_demand_forecasts():
-    """Get demand forecasts"""
-    return demand_forecasts
+def get_demand_forecasts(response: Response, limit: LimitParam = None, offset: OffsetParam = 0):
+    """Get demand forecasts, optionally paginated"""
+    return paginate(demand_forecasts, response, limit, offset)
 
 @app.get("/api/restocking/recommendations", response_model=RestockRecommendation)
 def get_restock_recommendations(budget: float = Query(..., ge=0, le=MAX_RESTOCK_BUDGET)):
@@ -334,10 +356,11 @@ def get_restock_recommendations(budget: float = Query(..., ge=0, le=MAX_RESTOCK_
     return build_restock_recommendation(budget, demand_forecasts)
 
 @app.get("/api/restocking/orders", response_model=List[SubmittedOrder])
-def get_submitted_orders():
-    """Get submitted restocking orders, newest first"""
+def get_submitted_orders(response: Response, limit: LimitParam = None, offset: OffsetParam = 0):
+    """Get submitted restocking orders, newest first, optionally paginated"""
     # Tie-break on the numeric order sequence: submitted_date has 1-second resolution
-    return sorted(mock_data.submitted_orders, key=lambda o: (o['submitted_date'], _order_seq(o)), reverse=True)
+    ordered = sorted(mock_data.submitted_orders, key=lambda o: (o['submitted_date'], _order_seq(o)), reverse=True)
+    return paginate(ordered, response, limit, offset)
 
 def _order_seq(order: dict) -> int:
     """Numeric sequence from an id like 'RST-12' (0 if malformed)."""
@@ -392,8 +415,8 @@ def submit_restock_order(request: SubmitRestockRequest):
     return order
 
 @app.get("/api/backlog", response_model=List[BacklogItem])
-def get_backlog():
-    """Get backlog items with purchase order status"""
+def get_backlog(response: Response, limit: LimitParam = None, offset: OffsetParam = 0):
+    """Get backlog items with purchase order status, optionally paginated"""
     # Add has_purchase_order flag to each backlog item
     po_by_backlog = {po["backlog_item_id"]: po["id"] for po in purchase_orders}
     result = []
@@ -403,7 +426,7 @@ def get_backlog():
         item_dict["has_purchase_order"] = po_id is not None
         item_dict["purchase_order_id"] = po_id
         result.append(item_dict)
-    return result
+    return paginate(result, response, limit, offset)
 
 _po_lock = threading.Lock()
 
@@ -444,9 +467,10 @@ def _find_task(task_id: str) -> dict:
     raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
 @app.get("/api/tasks", response_model=List[Task])
-def get_tasks():
-    """Get tasks created through the API (newest first). Mock profile tasks live client-side."""
-    return list(reversed(mock_data.tasks))
+def get_tasks(response: Response, limit: LimitParam = None, offset: OffsetParam = 0):
+    """Get tasks created through the API (newest first), optionally paginated.
+    Mock profile tasks live client-side."""
+    return paginate(list(reversed(mock_data.tasks)), response, limit, offset)
 
 @app.post("/api/tasks", response_model=Task, status_code=201)
 def create_task(request: CreateTaskRequest):
@@ -520,9 +544,9 @@ def get_category_spending():
     return category_spending
 
 @app.get("/api/spending/transactions")
-def get_recent_transactions():
-    """Get recent transactions"""
-    return recent_transactions
+def get_recent_transactions(response: Response, limit: LimitParam = None, offset: OffsetParam = 0):
+    """Get recent transactions, optionally paginated"""
+    return paginate(recent_transactions, response, limit, offset)
 
 @app.get("/api/reports/quarterly")
 def get_quarterly_reports(

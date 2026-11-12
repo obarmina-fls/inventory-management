@@ -55,6 +55,7 @@ npm install && npm run dev
 - `GET /api/dashboard/summary` - All filters
 - `GET /api/demand`, `/api/backlog` - No filters
 - `GET /api/spending/*` - Summary, monthly, categories, transactions
+- List endpoints (inventory, orders, demand, backlog, spending/transactions, restocking/orders, tasks) accept optional `limit` (1-500) / `offset`; the body stays a plain array and the total is in `X-Total-Count`. Omit `limit` to get the full list (the UI does, since dashboards aggregate over it)
 - `GET /api/reports/quarterly`, `/api/reports/monthly-trends` - Filters: warehouse, category, status, month
 
 ## Code Conventions

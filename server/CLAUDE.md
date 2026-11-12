@@ -276,6 +276,7 @@ server/
 - CORS restricted to the dev frontend; server binds to `127.0.0.1` (set `HOST=0.0.0.0` to expose)
 - No rate limiting; write endpoints are capped instead (`MAX_SUBMITTED_ORDERS`, `MAX_TASKS`)
 - Query params validated via `MonthParam` (`all` / `YYYY-MM` / `Qn-YYYY`) and `FilterParam` (max 50 chars); use them for new filtered endpoints
+- List endpoints take opt-in `limit`/`offset` (`LimitParam`/`OffsetParam`) via `paginate()`, which also sets `X-Total-Count`; paginate after filtering and sorting
 - GZip for responses over 1KB; `Cache-Control` set by middleware (`CACHEABLE_PATHS` get `max-age=60`, everything else `no-store`)
 - Suitable for local development only
 

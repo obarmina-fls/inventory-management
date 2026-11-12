@@ -502,6 +502,15 @@ export default {
       warehouse: '倉庫',
     },
   },
+  pagination: {
+    label: 'テーブルのページ送り',
+    showing: '{total}件中 {start}–{end}件を表示',
+    previous: '前へ',
+    next: '次へ',
+    previousPage: '前のページ',
+    nextPage: '次のページ',
+    page: '{n}ページ',
+  },
   common: {
     loadError: 'データの読み込みに失敗しました。',
     retry: '再試行',
