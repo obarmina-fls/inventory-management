@@ -1,5 +1,5 @@
 <template>
-  <BaseModal :open="Boolean(isOpen && backlogItem)" title="Inventory Shortage Details" max-width="700px" @close="close">
+  <BaseModal :open="Boolean(isOpen && backlogItem)" :title="t('modals.backlog.title')" max-width="700px" @close="close">
     <div class="modal-body">
       <div class="shortage-header">
         <div class="shortage-icon">
@@ -10,59 +10,61 @@
         </div>
         <div class="shortage-title-section">
           <h4 class="item-name">{{ translateProductName(backlogItem.item_name) }}</h4>
-          <div class="item-sku">SKU: {{ backlogItem.item_sku }}</div>
+          <div class="item-sku">{{ t('modals.sku', { sku: backlogItem.item_sku }) }}</div>
         </div>
-        <span class="priority-badge" :class="backlogItem.priority"> {{ backlogItem.priority }} Priority </span>
+        <span class="priority-badge" :class="backlogItem.priority">
+          {{ t('modals.backlog.priorityBadge', { priority: translatePriority(backlogItem.priority) }) }}
+        </span>
       </div>
 
       <div class="shortage-summary">
         <div class="summary-card danger">
-          <div class="summary-label">Shortage Amount</div>
-          <div class="summary-value">{{ shortage }} units</div>
+          <div class="summary-label">{{ t('modals.backlog.shortageAmount') }}</div>
+          <div class="summary-value">{{ t('modals.units', { n: shortage }) }}</div>
         </div>
         <div class="summary-card warning">
-          <div class="summary-label">Days Delayed</div>
-          <div class="summary-value">{{ backlogItem.days_delayed }} days</div>
+          <div class="summary-label">{{ t('modals.backlog.daysDelayed') }}</div>
+          <div class="summary-value">{{ t('common.days', { n: backlogItem.days_delayed }) }}</div>
         </div>
       </div>
 
       <div class="info-grid">
         <div class="info-item">
-          <div class="info-label">Order ID</div>
+          <div class="info-label">{{ t('modals.backlog.orderId') }}</div>
           <div class="info-value order-id">{{ backlogItem.order_id }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Item SKU</div>
+          <div class="info-label">{{ t('modals.backlog.itemSku') }}</div>
           <div class="info-value sku">{{ backlogItem.item_sku }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Quantity Needed</div>
-          <div class="info-value">{{ backlogItem.quantity_needed }} units</div>
+          <div class="info-label">{{ t('modals.backlog.quantityNeeded') }}</div>
+          <div class="info-value">{{ t('modals.units', { n: backlogItem.quantity_needed }) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Quantity Available</div>
-          <div class="info-value">{{ backlogItem.quantity_available }} units</div>
+          <div class="info-label">{{ t('modals.backlog.quantityAvailable') }}</div>
+          <div class="info-value">{{ t('modals.units', { n: backlogItem.quantity_available }) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Expected Date</div>
+          <div class="info-label">{{ t('modals.backlog.expectedDate') }}</div>
           <div class="info-value">{{ formatDate(backlogItem.expected_date) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Status</div>
+          <div class="info-label">{{ t('modals.status') }}</div>
           <div class="info-value">
-            <span class="badge danger">Backordered</span>
+            <span class="badge danger">{{ t('status.backordered') }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button class="btn-secondary" @click="close">Close</button>
+      <button class="btn-secondary" @click="close">{{ t('common.close') }}</button>
     </div>
   </BaseModal>
 </template>
@@ -72,7 +74,12 @@ import { computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
-const { translateProductName } = useI18n()
+const { t, currentLocale, translateProductName } = useI18n()
+
+const translatePriority = (priority) => {
+  const key = String(priority || '').toLowerCase()
+  return ['high', 'medium', 'low'].includes(key) ? t(`priority.${key}`) : priority
+}
 
 const props = defineProps({
   isOpen: {
@@ -97,9 +104,10 @@ const close = () => {
 }
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A'
+  if (!dateString) return t('modals.na')
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  if (isNaN(date.getTime())) return t('modals.na')
+  return date.toLocaleDateString(currentLocale.value === 'ja' ? 'ja-JP' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

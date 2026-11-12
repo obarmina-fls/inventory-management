@@ -62,7 +62,7 @@
           </div>
           <div v-if="monthlyRows.length === 0" class="empty-state">{{ t('reports.noData') }}</div>
           <div v-else class="chart-container">
-            <div class="bar-chart">
+            <div class="bar-chart" role="img" :aria-label="trendChartLabel">
               <div v-for="row in monthlyRows" :key="row.month" class="bar-wrapper">
                 <div class="bar-container">
                   <div
@@ -305,8 +305,15 @@ export default {
       downloadCsv(`report-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.csv`, text)
     }
 
+    // Accessible summary of the revenue bars (values are otherwise only in hover titles)
+    const trendChartLabel = computed(() => {
+      const parts = monthlyRows.value.map((row) => `${row.label} ${formatCurrency(row.revenue, currentCurrency.value)}`)
+      return `${t('reports.trend.title')}: ${parts.join(', ')}`
+    })
+
     return {
       t,
+      trendChartLabel,
       exportDisabled,
       exportCsv,
       currentCurrency,

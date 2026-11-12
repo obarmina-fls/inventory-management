@@ -1,5 +1,5 @@
 <template>
-  <BaseModal :open="Boolean(isOpen && product)" title="Product Details" max-width="700px" @close="close">
+  <BaseModal :open="Boolean(isOpen && product)" :title="t('modals.product.title')" max-width="700px" @close="close">
     <div class="modal-body">
       <div class="product-header">
         <div class="product-icon">
@@ -10,54 +10,54 @@
         </div>
         <div class="product-title-section">
           <h4 class="product-name">{{ product.name }}</h4>
-          <div class="product-sku">SKU: {{ product.sku }}</div>
+          <div class="product-sku">{{ t('modals.sku', { sku: product.sku }) }}</div>
         </div>
         <span class="stock-badge" :class="getStockBadgeClass(product.stockLevel)">
-          {{ product.stockLevel }}
+          {{ translateStockLevel(product.stockLevel) }}
         </span>
       </div>
 
       <div class="info-grid">
         <div class="info-item">
-          <div class="info-label">Category</div>
-          <div class="info-value">{{ product.category }}</div>
+          <div class="info-label">{{ t('modals.category') }}</div>
+          <div class="info-value">{{ translateCategory(product.category) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Warehouse</div>
-          <div class="info-value">{{ product.warehouse }}</div>
+          <div class="info-label">{{ t('modals.warehouse') }}</div>
+          <div class="info-value">{{ translateWarehouse(product.warehouse) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Units Ordered</div>
+          <div class="info-label">{{ t('modals.product.unitsOrdered') }}</div>
           <div class="info-value">{{ product.unitsOrdered }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Total Revenue</div>
+          <div class="info-label">{{ t('modals.product.totalRevenue') }}</div>
           <div class="info-value">{{ currencySymbol }}{{ product.revenue.toLocaleString() }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Current Stock</div>
-          <div class="info-value">{{ product.quantityOnHand }} units</div>
+          <div class="info-label">{{ t('modals.product.currentStock') }}</div>
+          <div class="info-value">{{ t('modals.units', { n: product.quantityOnHand }) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Reorder Point</div>
-          <div class="info-value">{{ product.reorderPoint }} units</div>
+          <div class="info-label">{{ t('modals.reorderPoint') }}</div>
+          <div class="info-value">{{ t('modals.units', { n: product.reorderPoint }) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">First Order Date</div>
+          <div class="info-label">{{ t('modals.product.firstOrderDate') }}</div>
           <div class="info-value">{{ formatDate(product.firstOrderDate) }}</div>
         </div>
 
         <div class="info-item">
-          <div class="info-label">Stock Status</div>
+          <div class="info-label">{{ t('modals.product.stockStatus') }}</div>
           <div class="info-value">
             <span :class="['badge', getStockBadgeClass(product.stockLevel)]">
-              {{ product.stockLevel }}
+              {{ translateStockLevel(product.stockLevel) }}
             </span>
           </div>
         </div>
@@ -65,7 +65,7 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn-secondary" @click="close">Close</button>
+      <button class="btn-secondary" @click="close">{{ t('common.close') }}</button>
     </div>
   </BaseModal>
 </template>
@@ -75,7 +75,7 @@ import { computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { useI18n } from '../composables/useI18n'
 
-const { currentCurrency } = useI18n()
+const { t, currentCurrency, currentLocale, translateWarehouse } = useI18n()
 
 const currencySymbol = computed(() => {
   return currentCurrency.value === 'JPY' ? '¥' : '$'
@@ -99,13 +99,32 @@ const close = () => {
 }
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A'
+  if (!dateString) return t('modals.na')
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  if (isNaN(date.getTime())) return t('modals.na')
+  return date.toLocaleDateString(currentLocale.value === 'ja' ? 'ja-JP' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+}
+
+// Category / stock level strings come from the data in English; map known ones to translated labels
+const translateCategory = (category) => {
+  const keys = {
+    'Circuit Boards': 'circuitBoards',
+    Sensors: 'sensors',
+    Actuators: 'actuators',
+    Controllers: 'controllers',
+    'Power Supplies': 'powerSupplies',
+  }
+  return keys[category] ? t(`categories.${keys[category]}`) : category
+}
+
+const translateStockLevel = (level) => {
+  if (level === 'In Stock') return t('status.inStock')
+  if (level === 'Low Stock') return t('status.lowStock')
+  return level
 }
 
 const getStockBadgeClass = (stockLevel) => {
