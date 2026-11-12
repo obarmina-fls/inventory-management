@@ -392,3 +392,98 @@ td.mono {
 .table-empty-cell .btn-reset:hover {
   background: var(--surface-muted);
 }
+
+/* Print-only content (e.g. report header with active filters) is hidden on screen */
+.print-only {
+  display: none;
+}
+
+/* Print: output only the page content on white paper.
+   Used for "Export PDF" (window.print) so Japanese text and charts render natively. */
+@media print {
+  /* Force light tokens even when the dark theme is active */
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-subtle: #f8fafc;
+    --surface-muted: #f1f5f9;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-subtle: #94a3b8;
+    --grid-line: transparent;
+    --success-ink: #047857;
+    --success-soft: #ecfdf5;
+    --success-border: #a7f3d0;
+    --info-ink: #1e40af;
+    --info-soft: #eff6ff;
+    --info-border: #bfdbfe;
+    --warning-ink: #854d0e;
+    --warning-soft: #fefce8;
+    --warning-border: #fde68a;
+    --danger-ink: #991b1b;
+    --danger-soft: #fef2f2;
+    --danger-border: #fecaca;
+    --violet-soft: #f5f3ff;
+    --chart-bar: #64748b;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+  }
+
+  /* App chrome and non-report UI */
+  .sidebar,
+  .sidebar-backdrop,
+  .app-header,
+  .app-topbar,
+  .modal-overlay,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+    margin-bottom: var(--space-4);
+  }
+
+  html,
+  body,
+  .app-shell,
+  .app-main,
+  .app-content {
+    background: #fff !important;
+    background-image: none !important;
+    color: var(--text);
+    min-height: 0;
+    display: block;
+  }
+  .app-content {
+    padding: 0;
+  }
+
+  /* Keep colored fills (chart bars, status badges) on paper */
+  .bar,
+  .badge,
+  .stat-card {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .card,
+  .stat-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+}
